@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>godir spike: manual Chrome checks</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { color-scheme: light dark; --line: #c9c9c9; --muted: #5f5f5f; --ok: #1a7f37; --bad: #b3261e; --soft: #f3f3f3; }
+  @media (prefers-color-scheme: dark) {
+    :root { --line: #4a4a4a; --muted: #a8a8a8; --ok: #4ac26b; --bad: #ff8a80; --soft: #2a2a2a; }
+  }
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 46rem; margin: 0 auto; padding: 0 1rem 4rem; }
+  h1 { font-size: 1.5rem; margin: 1rem 0 .25rem; }
+  h2 { font-size: 1.05rem; margin: 0 0 .5rem; }
+  code, kbd { font: .95em ui-monospace, Menlo, monospace; }
+  kbd { background: var(--soft); border: 1px solid var(--line); border-radius: 4px; padding: .05em .35em; white-space: nowrap; }
+  pre { background: var(--soft); border: 1px solid var(--line); border-radius: 4px; padding: .5rem; overflow-x: auto; margin: .5rem 0; }
+  .muted { color: var(--muted); }
+  #stub { position: sticky; top: 0; z-index: 1; background: Canvas; border-bottom: 1px solid var(--line); padding: .5rem 0; margin: 0; }
+  #stub.down { color: var(--bad); font-weight: 600; }
+  .env { display: grid; grid-template-columns: auto 1fr; gap: .4rem .75rem; align-items: center; }
+  input[type=text], textarea { font: inherit; padding: .3rem .4rem; width: 100%; box-sizing: border-box; }
+  ol#steps { list-style: none; padding: 0; margin: 1.5rem 0; }
+  .step { border: 1px solid var(--line); border-left-width: 5px; border-radius: 4px; padding: .75rem 1rem; margin: 0 0 1rem; }
+  .step.reached { border-left-color: var(--ok); }
+  .step .tag { font-weight: 400; color: var(--muted); font-size: .85rem; margin-left: .5rem; }
+  .step p, .step ol { margin: .4rem 0; }
+  .seen.yes { color: var(--ok); font-weight: 600; }
+  .altered { color: var(--bad); overflow-wrap: anywhere; }
+  .status-url { white-space: nowrap; }
+  .altered:empty, #unmatched:empty { display: none; }
+  [hidden] { display: none; }
+  fieldset { border: 0; padding: 0; margin: .6rem 0 .4rem; }
+  legend { padding: 0; font-weight: 600; }
+  fieldset label { display: block; padding: .1rem 0; }
+  .note { display: grid; grid-template-columns: auto 1fr; gap: .5rem; align-items: center; }
+  button { font: inherit; padding: .4rem .9rem; }
+  #save-status { margin-top: .6rem; overflow-wrap: anywhere; }
+  table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+  th, td { text-align: left; padding: .15rem .5rem .15rem 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+</style>
+</head>
+<body data-spike="manual">
+
+<h1>godir spike: manual Chrome checks</h1>
+<p class="muted">Milestone L0, Appendix B of the implementation plan: the checks that need a person and a real Chrome.</p>
+
+<p id="stub" role="status">Stub: checking…</p>
+
+<h2>Before you start</h2>
+<ol>
+  <li>This Chrome must be a <strong>fresh profile</strong> with the unpacked extension “godir spike” loaded, as <code>manual.sh</code> describes. <code>chrome://extensions</code> should list it without errors.</li>
+  <li>Keep this tab open. Do each step in a <strong>new tab</strong>, then come back here.</li>
+  <li>Type what a step shows into the address bar by hand and press Enter. Don't paste it, and don't pick a suggestion. If Chrome adds highlighted text after what you typed, press <kbd>Delete</kbd> once before Enter, so that only your own text is sent.</li>
+  <li>Follow the order, and until step C is recorded type nothing that starts with <code>go/</code> except what a step asks for. Chrome learns the host once and this profile can't unlearn it. After a slip, start again in a new profile.</li>
+  <li>The page watches the stub's request log and marks a step when its request arrives. You still say what you saw; correct the outcome if it was filled in wrongly.</li>
+  <li>Answers are kept in this profile and saved to the results file after every change, while the stub is running. If this tab is ever closed, or shows the extension's “The Directory did not answer” page, open <code>http://localhost:4655/-/spike/manual</code> again: nothing is lost.</li>
+</ol>
+
+<h2>This browser</h2>
+<div class="env">
+  <label for="chrome-version">Chrome version</label>
+  <input type="text" id="chrome-version" autocomplete="off" spellcheck="false">
+  <label for="os">Operating system</label>
+  <input type="text" id="os" autocomplete="off" spellcheck="false">
+  <label for="go-resolves">Does <code>go</code> resolve here?</label>
+  <input type="text" id="go-resolves" autocomplete="off" spellcheck="false" placeholder="no output, or the ip_address line">
+</div>
+<p class="muted">The first two are filled in from what the browser reports. Compare with <code>chrome://version</code> and correct them if needed.
+For the third, run <code>dscacheutil -q host -a name go</code> in a Terminal and enter what it prints, or “no output”. It tells a later reader whether a machine called <code>go</code> exists on this network (checks 7 and 16).</p>
+
+<ol id="steps"></ol>
+
+<h2>Save</h2>
+<p><label for="notes">Anything else worth recording</label></p>
+<textarea id="notes" rows="3"></textarea>
+<p>
+  <button type="button" id="save">Save results</button>
+  <button type="button" id="reset">Start over</button>
+  <span id="progress" class="muted"></span>
+</p>
+<p id="reset-confirm" hidden>Forget every answer and every detected request on this page?
+  <button type="button" id="reset-yes">Yes, start over</button> <button type="button" id="reset-no">No</button></p>
+<p id="save-status" role="status"></p>
+<p id="unmatched" class="muted"></p>
+
+<h2>When you are done</h2>
+<ol>
+  <li>Click “Save results” once more and check the line under it says “Saved”.</li>
+  <li>Quit the test Chrome: click its window, then <kbd>Cmd+Q</kbd>. Your everyday Chrome, if it is open, is a separate app in the Dock and is not affected.</li>
+  <li>In the Terminal where you set <code>P</code>, remove the throwaway profile: <code>rm -rf "$P"</code></li>
+  <li>In the Terminal that runs <code>manual.sh</code>, press <kbd>Ctrl+C</kbd>.</li>
+</ol>
+
+<details open>
+  <summary>Requests the stub has seen (newest first, last 10)</summary>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Time</th><th>Request</th><th>Host</th><th>Sec-Fetch-Site</th><th>Sec-Purpose</th></tr></thead>
+      <tbody id="recent"></tbody>
+    </table>
+  </div>
+</details>
+
+<script>
+'use strict';
+
+const NAV = ['navigated', 'Navigated to the stub'];
+const SEARCH = ['searched', 'Chrome searched instead'];
+const OTHER = ['other', 'Something else'];
+const SKIP = ['skipped', 'Skipped'];
+const STATUS_PAGE = '<code class="status-url"></code>';
+
+// The order is part of the experiment: A must happen before Chrome has ever
+// seen the host "go", and the last step replaces the extension.
+//   check            Appendix B number; text in brackets narrows what the step covers
+//   path             the request that marks the step when the stub logs it (exact escaped path)
+//   prefix           instead of path: any request whose path starts with this marks the step
+//   auto             outcome filled in when that request arrives, unless one is chosen already;
+//                    a function gets the log entry and returns the outcome
+//   expectedOutcome  the outcome code the plan expects; null when the step only records
+//   html             instructions; static text only, and never a link to the host "go"
+const STEPS = [
+  { id: 'A', check: '2', title: 'A go link before Chrome knows the host', path: '/m2', auto: 'navigated', expectedOutcome: 'searched',
+    html: `<p>Type <kbd>go/m2</kbd> and press Enter. This must be the first thing starting with <code>go/</code> that this profile ever sees.</p>
+           <p class="muted">If Chrome then offers “Did you mean http://go/m2”, leave it alone and mention it in the note.</p>`,
+    expected: 'Chrome runs a search for "go/m2" instead of navigating. This is the known first-time behavior and the reason the product has a first-run page.',
+    options: [NAV, SEARCH, OTHER] },
+  { id: 'B', check: '1', title: 'Teach Chrome the host', path: '/', expectedOutcome: 'navigated',
+    html: `<p>Type <kbd>go/</kbd> (with the slash, nothing after it) and press Enter. Watch the address bar: it should change from <code>go/</code> to <code>localhost:4655/</code>.</p>
+           <p class="muted">Choose the outcome yourself. The stub cannot tell a redirected <code>go/</code> from someone opening <code>localhost:4655</code> directly, so this step is never filled in for you. If this check fails, the design does not work as described.</p>`,
+    expected: 'The stub\'s home page, "godir spike stub: home", at localhost:4655, reached by typing go/.',
+    options: [NAV, SEARCH, OTHER] },
+  { id: 'C', check: '3', title: 'A go link after the host is known', path: '/m3', auto: 'navigated', expectedOutcome: 'navigated',
+    html: `<p>Type <kbd>go/m3</kbd> and press Enter.</p>`,
+    expected: 'Chrome now navigates: the page says "Check reached the stub: /m3".',
+    options: [NAV, SEARCH, OTHER] },
+  { id: 'C2', check: '13', title: 'The extension saw the typed go navigations', expectedOutcome: 'seen-http',
+    html: `<p>Open the extension's status page in a new tab. Pasting this address is fine: ${STATUS_PAGE}</p>
+           <p>Look at the list <code>goSeen</code>. It should hold one entry for the <code>go/</code> of step B and one for the <code>go/m3</code> of step C. Note which scheme the URLs carry, and copy the <code>goSeen</code> list into the note. Then close the status page.</p>`,
+    expected: 'goSeen lists http://go/ and http://go/m3. (The go/m2 of step A is missing if Chrome searched for it.)',
+    options: [['seen-http', 'Both are listed, as http://go/…'], ['seen-https', 'Both are listed, as https://go/…'],
+              ['seen-partly', 'Only one of them is listed'], ['not-seen', 'Neither is listed'], OTHER] },
+  { id: 'C3', check: '17 (new: the extension fetches the Directory)', title: 'The extension can ask the Directory directly', expectedOutcome: 'both-ok',
+    html: `<p>On the same status page (${STATUS_PAGE}), click “Test connection” and look at <code>meta</code>. It has two parts: <code>page</code> (asked from the status page) and <code>worker</code> (asked from the service worker). Watch for a permission question from Chrome about devices on your local network.</p>`,
+    expected: 'Both parts say "ok": true with status 200, and Chrome asks nothing.',
+    options: [['both-ok', 'Both say ok: true, and Chrome asked nothing'], ['prompt', 'Chrome asked for permission (local network)'],
+              ['failed', 'At least one part shows an error'], OTHER] },
+  { id: 'D', check: '10', title: 'Autocomplete offers a go link used before', expectedOutcome: 'offered-go',
+    html: `<p>In a new tab type <kbd>go/m</kbd> slowly and stop. Don't press Enter. Read the suggestions under the address bar, then press Esc.</p>
+           <p class="muted">In the note, say which row the go/m3 suggestion was in (1 is the top row) and whether Chrome also filled it into the address bar as highlighted text.</p>`,
+    expected: 'A suggestion for go/m3, the link used in step C, visible in the list.',
+    options: [['offered-go', 'It offered go/m3'], ['offered-directory', 'It offered only the localhost:4655/m3 address'],
+              ['not-offered', 'It offered neither'], OTHER] },
+  { id: 'E', check: '4 (link on the Directory\'s own page only)', title: 'A clicked go link on this page', path: '/m4', auto: 'navigated', expectedOutcome: 'navigated',
+    html: `<p>Click <span id="go-link-slot"></span></p>
+           <p class="muted">This page comes from localhost, which the extension has access to and which is not a public site. So this step only shows that a clicked link is redirected at all. The next step is the one that covers checks 4 and 11.</p>`,
+    expected: 'A new tab reaches the stub.',
+    options: [NAV, ['blocked', 'Chrome asked for permission or blocked it'], OTHER] },
+  { id: 'E2', check: '4+11', title: 'A clicked go link on a public HTTPS page', path: '/m11', expectedOutcome: 'arrived-no-prompt',
+    html: `<ol>
+             <li>Open <kbd>https://example.com</kbd> in a new tab.</li>
+             <li>Open the DevTools console there: <kbd>Cmd+Option+J</kbd>.</li>
+             <li>Copy the line below and paste it into the console, then press Enter. If Chrome refuses the paste, type <kbd>allow pasting</kbd>, press Enter, and paste again.
+               <pre>document.documentElement.innerHTML = '&lt;a href="http://go/m11" style="font-size:3em"&gt;go/m11&lt;/a&gt;'</pre></li>
+             <li>The page now shows one large link. Click it, and watch for a permission question about devices on your local network.</li>
+           </ol>
+           <p class="muted">Choose the outcome yourself: the stub cannot see a prompt. This is the check the automated run could not settle, because a headless browser has no prompt to show.</p>`,
+    expected: 'The tab reaches the stub ("Check reached the stub: /m11") with no permission prompt and nothing blocked.',
+    options: [['arrived-no-prompt', 'Arrived, no prompt'], ['prompt', 'Chrome asked for permission (local network)'],
+              ['blocked', 'Blocked, or an error page'], OTHER] },
+  { id: 'F1', check: '5', title: 'From a bookmark', path: '/m5', auto: 'navigated', expectedOutcome: 'navigated',
+    html: `<p>Open the bookmark manager (<kbd>Cmd+Option+B</kbd>). From its three-dot menu choose “Add new bookmark”, enter the URL <kbd>http://go/m5</kbd>, save it, then open that bookmark.</p>`,
+    expected: 'The stub is reached: "Check reached the stub: /m5".',
+    options: [NAV, SEARCH, OTHER] },
+  { id: 'F2', check: '5 (command-line handoff to the running test Chrome)', title: 'From another app, Chrome already running', path: '/m5b', auto: 'navigated', expectedOutcome: 'navigated',
+    html: `<p>In the Terminal window where you set <code>P</code> to start this Chrome, run:</p>
+           <pre>open -na "Google Chrome" --args --user-data-dir="$P" "http://go/m5b"</pre>
+           <p class="muted">That hands the address to this profile from outside the browser. It is close to, but not the same as, the plan's <code>open http://go/foo</code>: a plain <code>open</code> goes to your default browser, most likely your everyday profile, which doesn't have the extension.</p>`,
+    expected: 'A new tab in this Chrome reaches the stub: "Check reached the stub: /m5b".',
+    options: [NAV, SEARCH, OTHER] },
+  { id: 'G1', check: '6', title: 'https:// instead of http://', path: '/m6', auto: 'navigated', expectedOutcome: 'navigated',
+    html: `<p>Type <kbd>https://go/m6</kbd> and press Enter.</p>`,
+    expected: 'The stub is reached at http://localhost:4655/m6, with no certificate or security warning on the way.',
+    options: [NAV, ['warning', 'Chrome showed a warning or an error page'], SEARCH, OTHER] },
+  { id: 'G2', check: '6 (the setting as found)', title: '"Always use secure connections": how this profile came', expectedOutcome: null,
+    html: `<p>Open <kbd>chrome://settings/security</kbd> and find “Always use secure connections”. Don't change it yet. Record how a fresh profile of this Chrome version has it set.</p>`,
+    expected: 'Nothing in particular: this records the default. Steps A to G1 ran with it.',
+    options: [['off', 'Off'], ['public-sites', 'On, warning for insecure public sites only'],
+              ['public-and-private', 'On, warning for insecure public and private sites'], OTHER] },
+  { id: 'G3', check: '6', title: 'With "Always use secure connections" on for public and private sites', path: '/m6b', expectedOutcome: 'navigated',
+    html: `<p>On <kbd>chrome://settings/security</kbd> switch “Always use secure connections” on and choose the stricter level, the one that also covers private sites. Then type <kbd>http://go/m6b</kbd> and press Enter.</p>
+           <p class="muted">Choose the outcome yourself: if Chrome shows a warning and you click through it, the request still arrives.</p>`,
+    expected: 'The stub is reached, with no "connection is not secure" warning first. (In the automated run Chrome changed the address to https://go/m6b on the way, and the extension still redirected it.)',
+    options: [['navigated', 'Navigated to the stub, no warning'], ['warning', 'Chrome showed a warning first'], SEARCH, OTHER] },
+  { id: 'G4', check: '6', title: 'Optional: the public-sites level, then put the setting back', path: '/m6c', expectedOutcome: 'navigated',
+    html: `<p>Choose the other level, the one for public sites only, then type <kbd>http://go/m6c</kbd> and press Enter.</p>
+           <p><strong>Whether or not you do this:</strong> afterwards set “Always use secure connections” back to what you recorded in step G2, so the remaining steps run on the profile's default.</p>`,
+    expected: 'The stub is reached, with no warning.',
+    options: [['navigated', 'Navigated to the stub, no warning'], ['warning', 'Chrome showed a warning first'], SEARCH, OTHER, SKIP] },
+  { id: 'H1', check: '8', title: 'Query and fragment', path: '/m8', expectedOutcome: 'intact',
+    html: `<p>Type <kbd>go/m8?x=1#frag</kbd> and press Enter. Look at the end of the address bar on arrival; the page prints the same address.</p>`,
+    expected: 'The stub receives /m8?x=1 (shown below when it arrives) and the address still ends with #frag.',
+    options: [['intact', 'Arrived, and the address ends with ?x=1#frag'], ['fragment-lost', 'Arrived, but #frag was gone'], SEARCH, OTHER] },
+  { id: 'H2', check: '8', title: 'Optional: fragment across the stub\'s own redirect', path: '/hit/m8b', expectedOutcome: 'intact',
+    html: `<p>Type <kbd>go/hit/m8b?x=1#frag</kbd> and press Enter. The stub answers with a 302 to its “spike destination” page, which prints its own address.</p>`,
+    expected: 'The printed address ends with #frag. The query is not expected there: the stub\'s redirect drops it on purpose.',
+    options: [['intact', 'The destination\'s address ends with #frag'], ['fragment-lost', 'Arrived, but #frag was gone'], SEARCH, OTHER, SKIP] },
+  { id: 'H3', check: '9', title: 'An encoded path, typed', prefix: '/m9/', expectedOutcome: 'intact',
+    auto: e => e.requestURI === '/m9/a%20b%2Fc' ? 'intact' : 'altered',
+    html: `<p>Type <kbd>go/m9/a%20b%2Fc</kbd> and press Enter. Type the percent signs and digits exactly as shown.</p>`,
+    expected: 'The stub receives /m9/a%20b%2Fc, byte for byte (shown below when it arrives).',
+    options: [['intact', 'The stub received /m9/a%20b%2Fc exactly'], ['altered', 'The stub received something else (shown above)'], SEARCH, OTHER] },
+  { id: 'I', check: '12', title: 'The Directory is not running', expectedOutcome: 'unreachable-page',
+    html: `<ol>
+             <li>In the Terminal that runs <code>manual.sh</code>, press <kbd>Ctrl+C</kbd>. The line at the top of this page changes to “not answering”.</li>
+             <li>In a new tab type <kbd>go/m12</kbd> and press Enter. Choose below what you see. Keep that tab open for the next two steps.</li>
+           </ol>
+           <p class="muted">While the stub is stopped, don't reload this checklist tab: the extension would replace it with its own page too. If that happens, finish step I3 and open the checklist address again.</p>`,
+    expected: 'The extension\'s own page "The Directory did not answer" (its address starts with chrome-extension://) replaces Chrome\'s error page.',
+    options: [['unreachable-page', 'The extension\'s "The Directory did not answer" page appeared'],
+              ['chrome-error', 'Chrome\'s own error page stayed (ERR_CONNECTION_REFUSED)'], SEARCH, OTHER] },
+  { id: 'I2', check: '12 (Back button)', title: 'Back from the "did not answer" page', expectedOutcome: null,
+    html: `<p>With the stub still stopped, press the Back button once in the tab from step I and wait two seconds. Record where the tab ends up. Then, if the “did not answer” page is no longer showing, type <kbd>go/m12</kbd> there again.</p>`,
+    expected: 'Nothing in particular: this records the behavior. In the automated run, Back went to the failed address, which failed again and was replaced again, so the tab ended on the "did not answer" page once more.',
+    options: [['unreachable-again', 'The "did not answer" page again'], ['previous-page', 'The page the tab showed before (for a new tab, the New Tab page)'],
+              ['chrome-error', 'Chrome\'s own error page'], OTHER] },
+  { id: 'I3', check: '12', title: 'Retry after the Directory is back', path: '/m12', auto: 'navigated', expectedOutcome: 'navigated',
+    html: `<ol>
+             <li>Start the stub again: in the Terminal where you stopped it, press the Up arrow and Enter, or run <kbd class="restart-cmd"></kbd>. Nothing it prints needs repeating.</li>
+             <li>Click “Retry” on the “did not answer” page.</li>
+           </ol>`,
+    expected: 'Retry reaches the stub: "Check reached the stub: /m12".',
+    options: [NAV, ['unreachable-page', 'The "did not answer" page came back'], OTHER] },
+  { id: 'L1', check: '5+14', title: 'A go link opened while Chrome is closed', path: '/m14', auto: 'navigated', expectedOutcome: 'navigated',
+    html: `<ol>
+             <li>Quit the test Chrome completely: click its window, then <kbd>Cmd+Q</kbd>. This checklist closes with it; your answers are kept.</li>
+             <li>In the Terminal where you set <code>P</code>, run:
+               <pre>open -na "Google Chrome" --args --user-data-dir="$P" "http://go/m14"</pre></li>
+             <li>Look at what the first tab shows, then open this checklist again in that Chrome: <code>http://localhost:4655/-/spike/manual</code></li>
+           </ol>
+           <p class="muted">Here the go navigation is the very first thing Chrome does after starting, with an extension that was installed in an earlier session.</p>`,
+    expected: 'Chrome starts and its first tab reaches the stub: "Check reached the stub: /m14".',
+    options: [NAV, SEARCH, ['chrome-error', 'Chrome showed an error page (site can\'t be reached)'], OTHER] },
+  { id: 'L2', check: '14', title: 'The rule survived the restart by itself', expectedOutcome: 'rule-present',
+    html: `<p>Open the status page again (${STATUS_PAGE}) and look at the list <code>lifecycle</code>. The extension does not reinstall its rule when Chrome starts; it only writes down whether the rule was still there. Read the newest entry (the last one) and copy the whole list into the note.</p>`,
+    expected: 'The newest entry has "event": "onStartup" and "rulePresent": true.',
+    options: [['rule-present', 'Newest entry: onStartup, rulePresent true'], ['rule-absent', 'Newest entry: onStartup, rulePresent false'],
+              ['no-startup-entry', 'There is no onStartup entry'], OTHER] },
+  { id: 'L3', check: '14', title: 'Optional: with the service worker asleep', path: '/m14b', auto: 'navigated', expectedOutcome: 'navigated',
+    html: `<p>Close the status page. Open <kbd>chrome://extensions</kbd> and wait until the “godir spike” card says “service worker (inactive)”; that takes about half a minute without go navigations. Then, in a new tab, type <kbd>go/m14b</kbd> and press Enter.</p>`,
+    expected: 'The stub is reached although the extension\'s service worker was not running.',
+    options: [NAV, SEARCH, OTHER, SKIP] },
+  { id: 'J', check: '16', title: 'Incognito', path: '/m16', auto: 'navigated', expectedOutcome: null,
+    html: `<p>Open an Incognito window from this Chrome (<kbd>Cmd+Shift+N</kbd>). Leave the extension as it is: not allowed in Incognito. In that window type <kbd>go/m16</kbd> and press Enter.</p>`,
+    expected: 'Nothing in particular: this check only records what happens. The extension is probably inactive there, so Chrome searches or shows an error page.',
+    options: [NAV, SEARCH, ['chrome-error', 'Chrome showed an error page (site can\'t be reached)'], OTHER] },
+  { id: 'K', check: '15', title: 'Last: with the address-bar keyword registered', path: '/m15', auto: 'navigated', expectedOutcome: 'navigated',
+    html: `<ol>
+             <li>On <kbd>chrome://extensions</kbd> remove “godir spike”.</li>
+             <li>“Load unpacked” the folder <code>spike/extension-omnibox</code> (<code>manual.sh</code> printed its full path). It registers the keyword <code>go/</code>.</li>
+             <li>Type <kbd>go/m15</kbd> and press Enter.</li>
+           </ol>
+           <p class="muted">For the note: afterwards type <kbd>go/</kbd> and press Tab or Space. Does the address bar switch to “godir spike (omnibox)”?</p>`,
+    expected: 'Unchanged: Chrome navigates and the stub is reached. The keyword must not take over a plain go link.',
+    options: [NAV, ['keyword-mode', 'The address bar went into keyword mode'], SEARCH, OTHER] },
+];
+const GO_LINK = 'http://go/m4';
+const KEY = 'godir-spike-manual-v2';
+const $ = id => document.getElementById(id);
+
+// Answers and detections live in localStorage, because step I stops the stub
+// (and its log with it), step L1 closes the browser, and neither may lose anything.
+let state = load();
+
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && typeof s.steps === 'object' && s.startedAt) return s;
+  } catch {}
+  return { startedAt: new Date().toISOString(), chromeVersion: '', os: '', goResolves: '', notes: '', steps: {}, unmatched: [] };
+}
+function persist() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+}
+function stepState(id) {
+  return state.steps[id] ??= { outcome: null, note: '', detected: null, altered: [] };
+}
+// answer records an outcome, and when the step was first answered.
+function answer(id, outcome) {
+  const st = stepState(id);
+  st.outcome = outcome;
+  st.answeredAt ??= new Date().toISOString();
+}
+function clock(iso) {
+  return new Date(iso).toLocaleTimeString();
+}
+
+function render() {
+  for (const s of STEPS) {
+    const li = document.createElement('li');
+    li.className = 'step';
+    li.id = `step-${s.id}`;
+    li.innerHTML = `<h2>Step ${s.id}: <span class="title"></span><span class="tag"></span></h2>
+      ${s.html}
+      <p><strong>Expected:</strong> <span class="expected"></span></p>
+      <p class="seen" id="seen-${s.id}"></p>
+      <p class="altered" id="altered-${s.id}"></p>
+      <fieldset><legend>What happened?</legend></fieldset>
+      <label class="note">Note <input type="text" id="note-${s.id}" autocomplete="off"></label>`;
+    li.querySelector('.title').textContent = s.title;
+    li.querySelector('.tag').textContent = `check ${s.check}`;
+    li.querySelector('.expected').textContent = s.expected;
+    const fieldset = li.querySelector('fieldset');
+    for (const [value, text] of s.options) {
+      const label = document.createElement('label');
+      const radio = Object.assign(document.createElement('input'), { type: 'radio', name: `outcome-${s.id}`, value });
+      radio.addEventListener('change', () => { answer(s.id, value); changed(); refresh(); });
+      label.append(radio, ' ', text);
+      fieldset.append(label);
+    }
+    const note = li.querySelector(`#note-${s.id}`);
+    note.value = stepState(s.id).note;
+    note.addEventListener('input', () => { stepState(s.id).note = note.value; changed(); });
+    $('steps').append(li);
+  }
+  for (const [id, field] of [['chrome-version', 'chromeVersion'], ['os', 'os'], ['go-resolves', 'goResolves'], ['notes', 'notes']]) {
+    $(id).value = state[field] ?? '';
+    $(id).addEventListener('input', () => { state[field] = $(id).value; changed(); });
+  }
+}
+
+// refresh brings the page in line with state. It is cheap and idempotent.
+function refresh() {
+  let recorded = 0;
+  for (const s of STEPS) {
+    const st = stepState(s.id);
+    if (st.outcome) recorded++;
+    for (const radio of document.getElementsByName(`outcome-${s.id}`)) radio.checked = radio.value === st.outcome;
+    $(`step-${s.id}`).classList.toggle('reached', !!st.detected);
+    const seen = $(`seen-${s.id}`);
+    seen.classList.toggle('yes', !!st.detected);
+    const wanted = s.path ?? (s.prefix && `${s.prefix}…`);
+    seen.textContent = st.detected && s.path === '/'
+        ? `A request for / arrived at ${clock(st.detected.time)}. A direct visit to localhost:4655 looks the same in the log, so confirm that the address bar went from go/ to localhost:4655/.`
+      : st.detected ? `Reached the stub at ${clock(st.detected.time)}. It received: ${st.detected.requestURI}`
+      : wanted ? `The stub has not received ${wanted} yet.`
+      : 'The stub cannot see this one. Record it yourself.';
+    $(`altered-${s.id}`).textContent = st.altered?.length
+      ? `Requests that look like this step but arrived in another form: ${st.altered.join('   ')}` : '';
+  }
+  $('progress').textContent = `${recorded} of ${STEPS.length} steps have an outcome.`;
+  $('unmatched').textContent = state.unmatched?.length
+    ? `Requests that match no step (mention them in the notes if you know where they came from): ${state.unmatched.join('   ')}` : '';
+
+  // The only element on this page that leads to the host "go". It must not
+  // exist before steps A to C are recorded, or Chrome could learn the host early.
+  const unlocked = ['A', 'B', 'C'].every(id => stepState(id).outcome);
+  const slot = $('go-link-slot');
+  if (unlocked && !slot.querySelector('a')) {
+    const a = Object.assign(document.createElement('a'), { href: GO_LINK, target: '_blank', textContent: GO_LINK });
+    slot.replaceChildren('this link, which opens a new tab: ', a);
+  } else if (!unlocked) {
+    slot.textContent = `the link that appears here once steps A, B and C have an outcome. (It will point to ${GO_LINK}.)`;
+  }
+}
+
+// stepFor finds the step a logged request belongs to. exact is false when the
+// request only starts like a step's path: Chrome changed it on the way, and
+// that is worth showing rather than dropping.
+function stepFor(escapedPath) {
+  const exact = STEPS.find(s => s.path === escapedPath) ?? STEPS.find(s => s.prefix && escapedPath.startsWith(s.prefix));
+  if (exact) return { step: exact, exact: true };
+  let best = null;
+  for (const s of STEPS) {
+    const base = s.path ?? s.prefix;
+    if (base && base !== '/' && escapedPath.startsWith(base) && (!best || base.length > (best.path ?? best.prefix).length)) best = s;
+  }
+  return best ? { step: best, exact: false } : null;
+}
+
+// absorb marks steps whose request is in the stub's log. Ignored: requests
+// older than this page's first load (an earlier run), speculative loads the
+// user did not make (Sec-Purpose set), and any "/" from before step A was
+// answered (that can only be someone opening localhost:4655 directly).
+function absorb(entries) {
+  const since = Date.parse(state.startedAt);
+  const stepAAnswered = Date.parse(stepState('A').answeredAt ?? '');
+  let dirty = false;
+  for (const e of entries) {
+    if (Date.parse(e.time) < since || e.secPurpose) continue;
+    if (e.escapedPath === '/' && !(Date.parse(e.time) >= stepAAnswered)) continue;
+    const found = stepFor(e.escapedPath);
+    if (!found) {
+      if (/^\/m[0-9]/.test(e.escapedPath) && !state.unmatched.includes(e.requestURI)) { state.unmatched.push(e.requestURI); dirty = true; }
+      continue;
+    }
+    const st = stepState(found.step.id);
+    if (!found.exact) {
+      if (!st.altered.includes(e.requestURI)) { st.altered.push(e.requestURI); dirty = true; }
+      continue;
+    }
+    if (st.detected) continue;
+    st.detected = { time: e.time, method: e.method, host: e.host, requestURI: e.requestURI, secFetchSite: e.secFetchSite,
+                    secFetchMode: e.secFetchMode, secFetchDest: e.secFetchDest, secFetchUser: e.secFetchUser, referer: e.referer };
+    const auto = typeof found.step.auto === 'function' ? found.step.auto(e) : found.step.auto;
+    if (auto && !st.outcome) answer(found.step.id, auto);
+    dirty = true;
+  }
+  if (dirty) { changed(); refresh(); }
+}
+
+function showRecent(entries) {
+  $('recent').replaceChildren(...entries.slice(-10).reverse().map(e => {
+    const tr = document.createElement('tr');
+    for (const text of [clock(e.time), `${e.method} ${e.requestURI}`, e.host, e.secFetchSite, e.secPurpose]) {
+      tr.append(Object.assign(document.createElement('td'), { textContent: text }));
+    }
+    return tr;
+  }));
+}
+
+let polling = false;
+let downSince = null;
+async function poll() {
+  if (polling) return;
+  polling = true;
+  try {
+    const res = await fetch('/-/spike/log', { cache: 'no-store', signal: AbortSignal.timeout(3000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { entries } = await res.json();
+    const wasDown = downSince !== null;
+    downSince = null;
+    $('stub').className = '';
+    $('stub').textContent = `Stub: answering on ${location.host}, ${entries.length} request${entries.length === 1 ? '' : 's'} in its log.`;
+    absorb(entries);
+    showRecent(entries);
+    if (wasDown) changed(); // save what was answered while the stub was stopped
+  } catch {
+    downSince ??= new Date();
+    $('stub').className = 'down';
+    $('stub').textContent = `Stub: not answering since ${downSince.toLocaleTimeString()}. That is what step I wants; otherwise start it again (${restartCommand}).`;
+  } finally {
+    polling = false;
+  }
+}
+
+// What manual.sh knows and this page cannot work out: the status page's
+// address (it contains the extension's id) and the command that restarts the stub.
+let restartCommand = './manual.sh';
+async function loadConfig() {
+  let statusUrl = '';
+  try {
+    const config = await (await fetch('/-/spike/manual/config', { cache: 'no-store' })).json();
+    statusUrl = config.statusUrl || '';
+    restartCommand = config.restartCommand || restartCommand;
+  } catch {}
+  for (const el of document.querySelectorAll('.status-url')) {
+    el.textContent = statusUrl || 'chrome-extension://<the ID shown for "godir spike" on chrome://extensions>/status.html';
+  }
+  for (const el of document.querySelectorAll('.restart-cmd')) el.textContent = restartCommand;
+}
+
+async function prefill() {
+  let version = (navigator.userAgent.match(/Chrome\/([\d.]+)/) || [])[1] || '';
+  let os = navigator.platform || '';
+  try {
+    // The user-agent string only carries the major version; this has all of it.
+    const d = await navigator.userAgentData.getHighEntropyValues(['fullVersionList', 'platformVersion']);
+    const brand = d.fullVersionList.find(b => b.brand === 'Google Chrome') || d.fullVersionList.find(b => b.brand === 'Chromium');
+    if (brand) version = `${brand.brand} ${brand.version}`;
+    os = `${d.platform} ${d.platformVersion}`.trim();
+  } catch {}
+  if (!state.chromeVersion) $('chrome-version').value = state.chromeVersion = version;
+  if (!state.os) $('os').value = state.os = os;
+  persist();
+}
+
+function payload() {
+  const steps = STEPS.map(s => {
+    const st = stepState(s.id);
+    const option = s.options.find(o => o[0] === st.outcome);
+    // asExpected is null when there is nothing to compare: no answer yet, a
+    // skipped step, or a step that only records what happens.
+    const comparable = st.outcome && st.outcome !== 'skipped' && s.expectedOutcome !== null;
+    return { check: s.check, step: s.id, title: s.title, expected: s.expected, expectedOutcome: s.expectedOutcome,
+             outcome: st.outcome, outcomeLabel: option ? option[1] : null, asExpected: comparable ? st.outcome === s.expectedOutcome : null,
+             autoDetected: !!st.detected, detectedRequest: st.detected, alteredRequests: st.altered ?? [], note: st.note };
+  });
+  return { chromeVersion: state.chromeVersion, os: state.os, goResolves: state.goResolves, userAgent: navigator.userAgent,
+           startedAt: state.startedAt, savedAt: new Date().toISOString(), notes: state.notes,
+           unmatchedRequests: state.unmatched ?? [], steps };
+}
+
+// save writes the results file through the stub. quiet is the automatic save
+// after a change: it reports success in few words and failure not at all
+// (the stub is stopped on purpose in step I; the next change saves again).
+async function save({ quiet = false } = {}) {
+  const body = payload();
+  const open = body.steps.filter(s => !s.outcome).map(s => s.step);
+  const status = $('save-status');
+  try {
+    const res = await fetch('/-/spike/manual/results', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`the stub answered HTTP ${res.status}`);
+    const { written } = await res.json();
+    status.textContent = `Saved to ${written} at ${new Date().toLocaleTimeString()}.`
+      + (open.length ? ` Still without an outcome: ${open.join(', ')}.` : ' Every step has an outcome.');
+  } catch (err) {
+    if (!quiet) status.textContent = `Not saved: ${err.message}. Is the stub running? Your answers are kept in this profile, so start the stub and save again.`;
+  }
+}
+
+// changed is called after every edit: keep it in the profile now, and save it
+// to the results file shortly after, once typing has paused.
+let saveTimer = null;
+function changed() {
+  persist();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { if (downSince === null) save({ quiet: true }); }, 800);
+}
+
+render();
+refresh();
+loadConfig();
+prefill();
+poll();
+setInterval(poll, 1000);
+$('save').addEventListener('click', () => save());
+// The confirmation is part of the page: a browser dialog could be suppressed.
+$('reset').addEventListener('click', () => { $('reset-confirm').hidden = false; });
+$('reset-no').addEventListener('click', () => { $('reset-confirm').hidden = true; });
+$('reset-yes').addEventListener('click', () => {
+  try { localStorage.removeItem(KEY); } catch {}
+  location.reload();
+});
+</script>
+</body>
+</html>

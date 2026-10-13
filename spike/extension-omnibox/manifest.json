@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "godir spike (omnibox)",
+  "version": "0.0.1",
+  "description": "Throwaway L0 spike: redirects go/ navigations to the stub Directory on localhost:4655.",
+  "permissions": [
+    "declarativeNetRequestWithHostAccess",
+    "storage",
+    "webRequest"
+  ],
+  "host_permissions": [
+    "*://go/*",
+    "http://localhost:4655/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "omnibox": {
+    "keyword": "go/"
+  }
+}

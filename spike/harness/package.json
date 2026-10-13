@@ -1,0 +1,13 @@
+{
+  "name": "godir-spike-harness",
+  "private": true,
+  "type": "module",
+  "description": "Throwaway Playwright harness for the L0 Chrome spike. Deleted when L1 starts.",
+  "scripts": {
+    "checks": "playwright test",
+    "install-browser": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0"
+  }
+}

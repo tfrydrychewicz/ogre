@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>godir spike status</title>
+    <link rel="stylesheet" href="pages.css">
+  </head>
+  <body>
+    <h1>godir spike status</h1>
+    <p>
+      Refreshed every second.
+      <button id="clear" type="button">Clear</button> empties goSeen and directoryErrors.
+      <button id="probe" type="button">Test connection</button> fetches the Directory's meta endpoint again, from this
+      page and from the service worker (shown under <code>meta</code>).
+    </p>
+    <pre id="state">loading</pre>
+    <script type="module" src="status.js"></script>
+  </body>
+</html>

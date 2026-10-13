@@ -1,0 +1,3067 @@
+{
+  "generatedAt": "2026-10-13T14:24:15.208Z",
+  "lastWrittenByCheck": 15,
+  "note": "generatedAt is the time of the last write, by the check named above. Each check carries its own ranAt and chromiumVersion. chromiumVersion and launch below describe only the launch that preceded the last write; every launch of the harness uses the same switches apart from the ones a check adds (named in its evidence).",
+  "chromiumVersion": "156.0.8078.4",
+  "launch": {
+    "browser": "Playwright's bundled Chromium (channel \"chromium\", Google Chrome for Testing), headless, fresh temporary profile per launch",
+    "featuresLeftEnabled": [
+      "HttpsUpgrades"
+    ],
+    "fieldTrials": "--disable-field-trial-config and --disable-background-networking are passed (Playwright defaults), so the browser applies neither Chromium's field-trial testing configuration nor a variations seed from Google: features are at their compiled-in defaults. Chrome stable also applies server-side field trials, which can switch features on that are off here.",
+    "commandLine": "~/Library/Caches/ms-playwright/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,NetworkTimeServiceQuerying,AimEnabled,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --disable-extensions-except=<repo>/spike/extension --load-extension=<repo>/spike/extension --user-data-dir=<tmp>/godir-spike-profile-XXXXXX --remote-debugging-pipe --noerrdialogs --flag-switches-begin --flag-switches-end --enable-unsafe-swiftshader about:blank"
+  },
+  "checks": [
+    {
+      "id": 1,
+      "title": "Typing go/ and pressing Enter reaches the stub",
+      "mode": "proxy",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:24:15.180Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "In a fresh profile the default match for \"go/\" is url-what-you-typed [HistoryURL 1203] -> http://go/ (input classified as \"url\"), so Enter would navigate. Opening that URL as a typed navigation ended on http://localhost:4655/; the stub logged [\"GET localhost:4655/\"]. PROXY ONLY: this is Chromium's autocomplete code answering through chrome://omnibox in Playwright's headless Chromium, not a person typing in Chrome stable. The manual run must still confirm it.",
+      "evidence": {
+        "query": {
+          "how": "New profile, spike/extension loaded, nothing visited.",
+          "queries": [
+            {
+              "input": "go/",
+              "inputType": "url",
+              "isTypedHost": false,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1203] -> http://go/",
+              "others": [
+                "search-what-you-typed [Search 850 keyword=google.com] -> https://www.google.com/search?q=go%2F&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+                "search-other-engine [Keyword 700 keyword=google.com] -> "
+              ],
+              "serverSuggestionsOmitted": 3
+            }
+          ]
+        },
+        "navigation": {
+          "asked": "http://go/",
+          "how": "CDP Page.navigate, transitionType \"typed\"",
+          "errorText": null,
+          "finalUrl": "http://localhost:4655/",
+          "stubLog": [
+            "GET localhost:4655/"
+          ]
+        },
+        "rawFile": "<repo>/spike/results/omnibox-raw.json"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Before go/ was ever typed, go/foo: record whether Chrome searches or navigates",
+      "mode": "proxy",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:24:15.187Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "In a fresh profile \"go/foo\" is classified as \"unknown\" and the default match is search-what-you-typed [Search 1300 keyword=google.com] -> https://www.google.com/search?q=go%2Ffoo&sourceid=chrome&source=chrome.ob&ie=UTF-8: Enter would search, as the plan expects. For comparison, Enter would: \"go/foo\" -> search; \"go/\" -> navigate; \"go/foo/\" -> navigate; \"http://go/foo\" -> navigate; \"go\" -> search. PROXY ONLY: this is Chromium's autocomplete code answering through chrome://omnibox in Playwright's headless Chromium, not a person typing in Chrome stable. The manual run must still confirm it.",
+      "evidence": {
+        "fresh": {
+          "how": "New profile, spike/extension loaded, nothing visited.",
+          "queries": [
+            {
+              "input": "go/foo",
+              "inputType": "unknown",
+              "isTypedHost": false,
+              "allProvidersDone": true,
+              "enterWould": "search",
+              "default": "search-what-you-typed [Search 1300 keyword=google.com] -> https://www.google.com/search?q=go%2Ffoo&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+              "others": [
+                "url-what-you-typed [HistoryURL 1203] -> http://go/foo"
+              ],
+              "serverSuggestionsOmitted": 6
+            },
+            {
+              "input": "go/",
+              "inputType": "url",
+              "isTypedHost": false,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1203] -> http://go/",
+              "others": [
+                "search-what-you-typed [Search 850 keyword=google.com] -> https://www.google.com/search?q=go%2F&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+                "search-other-engine [Keyword 700 keyword=google.com] -> "
+              ],
+              "serverSuggestionsOmitted": 3
+            },
+            {
+              "input": "go/foo/",
+              "inputType": "url",
+              "isTypedHost": false,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1203] -> http://go/foo/",
+              "others": [
+                "search-what-you-typed [Search 850 keyword=google.com] -> https://www.google.com/search?q=go%2Ffoo%2F&sourceid=chrome&source=chrome.ob&ie=UTF-8"
+              ],
+              "serverSuggestionsOmitted": 3
+            },
+            {
+              "input": "http://go/foo",
+              "inputType": "url",
+              "isTypedHost": false,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1203] -> http://go/foo",
+              "others": [
+                "search-what-you-typed [Search 850 keyword=google.com] -> https://www.google.com/search?q=http%3A%2F%2Fgo%2Ffoo&sourceid=chrome&source=chrome.ob&ie=UTF-8"
+              ],
+              "serverSuggestionsOmitted": 2
+            },
+            {
+              "input": "go",
+              "inputType": "unknown",
+              "isTypedHost": false,
+              "allProvidersDone": true,
+              "enterWould": "search",
+              "default": "search-what-you-typed [Search 851 keyword=google.com] -> https://www.google.com/search?q=go&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+              "others": [
+                "search-other-engine [Keyword 450 keyword=google.com] -> "
+              ],
+              "serverSuggestionsOmitted": 8
+            }
+          ]
+        },
+        "rawFile": "<repo>/spike/results/omnibox-raw.json"
+      }
+    },
+    {
+      "id": 3,
+      "title": "After go/ has been typed once, go/foo navigates",
+      "mode": "proxy",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:24:15.194Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "\"go/foo\" by state. Fresh: Enter would search (isTypedHost false). After one typed visit to http://go/ (history row: {\"id\":1,\"url\":\"http://go/\",\"visit_count\":1,\"typed_count\":1,\"hidden\":0}): default match url-what-you-typed [HistoryURL 1403] -> http://go/foo, Enter would navigate (isTypedHost true). First visit to go was a clicked link, never typed: Enter would navigate (isTypedHost true); history recorded that click as [\"TYPED|CHAIN_START\"]. Typed credit removed by editing the history file (synthetic \"visited, not typed\"): Enter would search (isTypedHost false). Typed visit while the Directory was down (tab ended on chrome-extension://<spike-extension-id>/unreachable.html): Enter would search (isTypedHost false); http://go/ rows in history afterwards: 0. With \"Always use secure connections\" at its strict level (https_only_mode_enabled, still true in the profile after exit), one visit to http://go/: history holds [\"http://go/ (typed_count 0)\",\"https://go/ (typed_count 1)\"], and the default match for \"go/foo\" is url-what-you-typed [HistoryURL 1403] -> https://go/foo, Enter would navigate (isTypedHost true); so there the host is taught under https://go/. The \"typed\" visit was made with CDP Page.navigate, transitionType \"typed\", not by typing. PROXY ONLY: this is Chromium's autocomplete code answering through chrome://omnibox in Playwright's headless Chromium, not a person typing in Chrome stable. The manual run must still confirm it.",
+      "evidence": {
+        "fresh": {
+          "how": "New profile, spike/extension loaded, nothing visited.",
+          "queries": [
+            {
+              "input": "go/foo",
+              "inputType": "unknown",
+              "isTypedHost": false,
+              "allProvidersDone": true,
+              "enterWould": "search",
+              "default": "search-what-you-typed [Search 1300 keyword=google.com] -> https://www.google.com/search?q=go%2Ffoo&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+              "others": [
+                "url-what-you-typed [HistoryURL 1203] -> http://go/foo"
+              ],
+              "serverSuggestionsOmitted": 6
+            }
+          ]
+        },
+        "afterTypedVisit": {
+          "how": "Same profile after one visit to http://go/ (CDP Page.navigate, transitionType \"typed\").",
+          "queries": [
+            {
+              "input": "go/foo",
+              "inputType": "unknown",
+              "isTypedHost": true,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1403] -> http://go/foo",
+              "others": [
+                "search-what-you-typed [Search 1300 keyword=google.com] -> https://www.google.com/search?q=go%2Ffoo&sourceid=chrome&source=chrome.ob&ie=UTF-8"
+              ],
+              "serverSuggestionsOmitted": 6
+            },
+            {
+              "input": "go/",
+              "inputType": "url",
+              "isTypedHost": true,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1413] -> http://go/",
+              "others": [
+                "search-what-you-typed [Search 850 keyword=google.com] -> https://www.google.com/search?q=go%2F&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+                "search-other-engine [Keyword 700 keyword=google.com] -> "
+              ],
+              "serverSuggestionsOmitted": 3
+            },
+            {
+              "input": "go/foo/",
+              "inputType": "url",
+              "isTypedHost": true,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1203] -> http://go/foo/",
+              "others": [
+                "search-what-you-typed [Search 850 keyword=google.com] -> https://www.google.com/search?q=go%2Ffoo%2F&sourceid=chrome&source=chrome.ob&ie=UTF-8"
+              ],
+              "serverSuggestionsOmitted": 3
+            },
+            {
+              "input": "http://go/foo",
+              "inputType": "url",
+              "isTypedHost": true,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1203] -> http://go/foo",
+              "others": [
+                "search-what-you-typed [Search 850 keyword=google.com] -> https://www.google.com/search?q=http%3A%2F%2Fgo%2Ffoo&sourceid=chrome&source=chrome.ob&ie=UTF-8"
+              ],
+              "serverSuggestionsOmitted": 2
+            },
+            {
+              "input": "go",
+              "inputType": "unknown",
+              "isTypedHost": true,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1413] -> http://go/",
+              "others": [
+                "search-what-you-typed [Search 851 keyword=google.com] -> https://www.google.com/search?q=go&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+                "history-title [HistoryQuick 793] -> http://localhost:4655/"
+              ],
+              "serverSuggestionsOmitted": 5
+            }
+          ]
+        },
+        "firstVisitWasALinkClick": {
+          "how": "New profile; the only visit to go was a mouse click on <a href> on http://localhost:4655/m1 to http://go/hit/clicked.",
+          "queries": [
+            {
+              "input": "go/foo",
+              "inputType": "unknown",
+              "isTypedHost": true,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1403] -> http://go/foo",
+              "others": [
+                "search-what-you-typed [Search 1300 keyword=google.com] -> https://www.google.com/search?q=go%2Ffoo&sourceid=chrome&source=chrome.ob&ie=UTF-8"
+              ],
+              "serverSuggestionsOmitted": 6
+            },
+            {
+              "input": "go/",
+              "inputType": "url",
+              "isTypedHost": true,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1203] -> http://go/",
+              "others": [
+                "search-what-you-typed [Search 850 keyword=google.com] -> https://www.google.com/search?q=go%2F&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+                "search-other-engine [Keyword 700 keyword=google.com] -> ",
+                "history-url [HistoryURL 1202] -> http://go/hit/clicked"
+              ],
+              "serverSuggestionsOmitted": 3
+            },
+            {
+              "input": "go",
+              "inputType": "unknown",
+              "isTypedHost": true,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1403] -> http://go/",
+              "others": [
+                "search-what-you-typed [Search 851 keyword=google.com] -> https://www.google.com/search?q=go&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+                "history-url [HistoryURL 1390] -> http://go/hit/clicked"
+              ],
+              "serverSuggestionsOmitted": 5
+            }
+          ]
+        },
+        "typedCreditRemoved": {
+          "how": "SYNTHETIC: same profile, browser closed, typed credit removed from the history file (typed_count = 0 on 2 http://go/ URLs, 2 visits set to LINK), relaunched.",
+          "queries": [
+            {
+              "input": "go/foo",
+              "inputType": "unknown",
+              "isTypedHost": false,
+              "allProvidersDone": true,
+              "enterWould": "search",
+              "default": "search-what-you-typed [Search 1300 keyword=google.com] -> https://www.google.com/search?q=go%2Ffoo&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+              "others": [
+                "url-what-you-typed [HistoryURL 1203] -> http://go/foo"
+              ],
+              "serverSuggestionsOmitted": 6
+            },
+            {
+              "input": "go/",
+              "inputType": "url",
+              "isTypedHost": false,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1203] -> http://go/",
+              "others": [
+                "search-what-you-typed [Search 850 keyword=google.com] -> https://www.google.com/search?q=go%2F&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+                "search-other-engine [Keyword 700 keyword=google.com] -> ",
+                "history-url [HistoryQuick 751] -> http://go/hit/x"
+              ],
+              "serverSuggestionsOmitted": 3
+            },
+            {
+              "input": "go/foo/",
+              "inputType": "url",
+              "isTypedHost": false,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1203] -> http://go/foo/",
+              "others": [
+                "search-what-you-typed [Search 850 keyword=google.com] -> https://www.google.com/search?q=go%2Ffoo%2F&sourceid=chrome&source=chrome.ob&ie=UTF-8"
+              ],
+              "serverSuggestionsOmitted": 3
+            },
+            {
+              "input": "http://go/foo",
+              "inputType": "url",
+              "isTypedHost": false,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1203] -> http://go/foo",
+              "others": [
+                "search-what-you-typed [Search 850 keyword=google.com] -> https://www.google.com/search?q=http%3A%2F%2Fgo%2Ffoo&sourceid=chrome&source=chrome.ob&ie=UTF-8"
+              ],
+              "serverSuggestionsOmitted": 2
+            },
+            {
+              "input": "go",
+              "inputType": "unknown",
+              "isTypedHost": false,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1203] -> http://go/",
+              "others": [
+                "search-what-you-typed [Search 851 keyword=google.com] -> https://www.google.com/search?q=go&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+                "history-title [HistoryQuick 793] -> http://localhost:4655/",
+                "history-url [HistoryQuick 751] -> http://go/hit/x"
+              ],
+              "serverSuggestionsOmitted": 4
+            }
+          ]
+        },
+        "directoryDown": {
+          "how": "New profile; one visit to http://go/ (CDP Page.navigate, transitionType \"typed\") while the stub was stopped.",
+          "queries": [
+            {
+              "input": "go/foo",
+              "inputType": "unknown",
+              "isTypedHost": false,
+              "allProvidersDone": true,
+              "enterWould": "search",
+              "default": "search-what-you-typed [Search 1300 keyword=google.com] -> https://www.google.com/search?q=go%2Ffoo&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+              "others": [
+                "url-what-you-typed [HistoryURL 1203] -> http://go/foo"
+              ],
+              "serverSuggestionsOmitted": 6
+            },
+            {
+              "input": "go/",
+              "inputType": "url",
+              "isTypedHost": false,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1203] -> http://go/",
+              "others": [
+                "search-what-you-typed [Search 850 keyword=google.com] -> https://www.google.com/search?q=go%2F&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+                "search-other-engine [Keyword 700 keyword=google.com] -> "
+              ],
+              "serverSuggestionsOmitted": 3
+            }
+          ]
+        },
+        "strictHttpsFirst": {
+          "how": "New profile with the setting \"https_only_mode_enabled\" on; one visit to http://go/ (CDP Page.navigate, transitionType \"typed\").",
+          "queries": [
+            {
+              "input": "go/foo",
+              "inputType": "unknown",
+              "isTypedHost": true,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1403] -> https://go/foo",
+              "others": [
+                "search-what-you-typed [Search 1300 keyword=google.com] -> https://www.google.com/search?q=go%2Ffoo&sourceid=chrome&source=chrome.ob&ie=UTF-8"
+              ],
+              "serverSuggestionsOmitted": 6
+            },
+            {
+              "input": "go/",
+              "inputType": "url",
+              "isTypedHost": true,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1203] -> http://go/",
+              "others": [
+                "search-what-you-typed [Search 850 keyword=google.com] -> https://www.google.com/search?q=go%2F&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+                "search-other-engine [Keyword 700 keyword=google.com] -> "
+              ],
+              "serverSuggestionsOmitted": 3
+            },
+            {
+              "input": "go",
+              "inputType": "unknown",
+              "isTypedHost": true,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "history-url [HistoryURL 1413] -> https://go/",
+              "others": [
+                "search-what-you-typed [Search 851 keyword=google.com] -> https://www.google.com/search?q=go&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+                "history-title [HistoryQuick 793] -> http://localhost:4655/"
+              ],
+              "serverSuggestionsOmitted": 5
+            }
+          ]
+        },
+        "navigations": {
+          "home": {
+            "asked": "http://go/",
+            "how": "CDP Page.navigate, transitionType \"typed\"",
+            "errorText": null,
+            "finalUrl": "http://localhost:4655/",
+            "stubLog": [
+              "GET localhost:4655/"
+            ]
+          },
+          "used": {
+            "asked": "http://go/hit/x",
+            "how": "CDP Page.navigate, transitionType \"typed\"",
+            "errorText": null,
+            "finalUrl": "http://localhost:4655/-/spike/dest"
+          },
+          "clicked": {
+            "asked": "http://go/hit/clicked",
+            "how": "mouse click on <a href> on http://localhost:4655/m1",
+            "finalUrl": "http://localhost:4655/-/spike/dest"
+          },
+          "strict": {
+            "asked": "http://go/",
+            "how": "CDP Page.navigate, transitionType \"typed\"",
+            "errorText": null,
+            "finalUrl": "http://localhost:4655/",
+            "settingAfterExit": {
+              "https_only_mode_enabled": true
+            }
+          },
+          "keywordHome": {
+            "asked": "http://go/",
+            "how": "CDP Page.navigate, transitionType \"typed\"",
+            "errorText": null,
+            "finalUrl": "http://localhost:4655/"
+          },
+          "down": {
+            "asked": "http://go/",
+            "how": "CDP Page.navigate, transitionType \"typed\"",
+            "errorText": "net::ERR_CONNECTION_REFUSED",
+            "finalUrl": "chrome-extension://<spike-extension-id>/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2F&error=net%3A%3AERR_CONNECTION_REFUSED"
+          }
+        },
+        "history": {
+          "afterTypedVisits": {
+            "urls": [
+              {
+                "id": 1,
+                "url": "http://go/",
+                "visit_count": 1,
+                "typed_count": 1,
+                "hidden": 0
+              },
+              {
+                "id": 2,
+                "url": "http://localhost:4655/",
+                "visit_count": 1,
+                "typed_count": 0,
+                "hidden": 0
+              },
+              {
+                "id": 3,
+                "url": "http://go/hit/x",
+                "visit_count": 1,
+                "typed_count": 1,
+                "hidden": 0
+              },
+              {
+                "id": 4,
+                "url": "http://localhost:4655/hit/x",
+                "visit_count": 1,
+                "typed_count": 0,
+                "hidden": 0
+              },
+              {
+                "id": 5,
+                "url": "http://localhost:4655/-/spike/dest",
+                "visit_count": 1,
+                "typed_count": 0,
+                "hidden": 0
+              }
+            ],
+            "visits": [
+              {
+                "id": 1,
+                "url": "http://go/",
+                "fromVisit": 0,
+                "transition": "TYPED|FROM_API|CHAIN_START"
+              },
+              {
+                "id": 2,
+                "url": "http://localhost:4655/",
+                "fromVisit": 1,
+                "transition": "TYPED|FROM_API|CHAIN_END|SERVER_REDIRECT"
+              },
+              {
+                "id": 3,
+                "url": "http://go/hit/x",
+                "fromVisit": 0,
+                "transition": "TYPED|FROM_API|CHAIN_START"
+              },
+              {
+                "id": 4,
+                "url": "http://localhost:4655/hit/x",
+                "fromVisit": 3,
+                "transition": "TYPED|FROM_API|SERVER_REDIRECT"
+              },
+              {
+                "id": 5,
+                "url": "http://localhost:4655/-/spike/dest",
+                "fromVisit": 4,
+                "transition": "TYPED|FROM_API|CHAIN_END|SERVER_REDIRECT"
+              }
+            ]
+          },
+          "firstVisitWasALinkClick": {
+            "urls": [
+              {
+                "id": 1,
+                "url": "http://localhost:4655/m1",
+                "visit_count": 1,
+                "typed_count": 1,
+                "hidden": 0
+              },
+              {
+                "id": 2,
+                "url": "http://go/hit/clicked",
+                "visit_count": 1,
+                "typed_count": 1,
+                "hidden": 0
+              },
+              {
+                "id": 3,
+                "url": "http://localhost:4655/hit/clicked",
+                "visit_count": 1,
+                "typed_count": 0,
+                "hidden": 0
+              },
+              {
+                "id": 4,
+                "url": "http://localhost:4655/-/spike/dest",
+                "visit_count": 1,
+                "typed_count": 0,
+                "hidden": 0
+              }
+            ],
+            "visits": [
+              {
+                "id": 1,
+                "url": "http://localhost:4655/m1",
+                "fromVisit": 0,
+                "transition": "TYPED|FROM_API|CHAIN_START|CHAIN_END"
+              },
+              {
+                "id": 2,
+                "url": "http://go/hit/clicked",
+                "fromVisit": 1,
+                "transition": "TYPED|CHAIN_START"
+              },
+              {
+                "id": 3,
+                "url": "http://localhost:4655/hit/clicked",
+                "fromVisit": 2,
+                "transition": "TYPED|SERVER_REDIRECT"
+              },
+              {
+                "id": 4,
+                "url": "http://localhost:4655/-/spike/dest",
+                "fromVisit": 3,
+                "transition": "TYPED|CHAIN_END|SERVER_REDIRECT"
+              }
+            ]
+          },
+          "typedCreditRemoved": {
+            "urls": [
+              {
+                "id": 1,
+                "url": "http://go/",
+                "visit_count": 1,
+                "typed_count": 0,
+                "hidden": 0
+              },
+              {
+                "id": 2,
+                "url": "http://localhost:4655/",
+                "visit_count": 1,
+                "typed_count": 0,
+                "hidden": 0
+              },
+              {
+                "id": 3,
+                "url": "http://go/hit/x",
+                "visit_count": 1,
+                "typed_count": 0,
+                "hidden": 0
+              },
+              {
+                "id": 4,
+                "url": "http://localhost:4655/hit/x",
+                "visit_count": 1,
+                "typed_count": 0,
+                "hidden": 0
+              },
+              {
+                "id": 5,
+                "url": "http://localhost:4655/-/spike/dest",
+                "visit_count": 1,
+                "typed_count": 0,
+                "hidden": 0
+              }
+            ],
+            "visits": [
+              {
+                "id": 1,
+                "url": "http://go/",
+                "fromVisit": 0,
+                "transition": "LINK|FROM_API|CHAIN_START"
+              },
+              {
+                "id": 2,
+                "url": "http://localhost:4655/",
+                "fromVisit": 1,
+                "transition": "TYPED|FROM_API|CHAIN_END|SERVER_REDIRECT"
+              },
+              {
+                "id": 3,
+                "url": "http://go/hit/x",
+                "fromVisit": 0,
+                "transition": "LINK|FROM_API|CHAIN_START"
+              },
+              {
+                "id": 4,
+                "url": "http://localhost:4655/hit/x",
+                "fromVisit": 3,
+                "transition": "TYPED|FROM_API|SERVER_REDIRECT"
+              },
+              {
+                "id": 5,
+                "url": "http://localhost:4655/-/spike/dest",
+                "fromVisit": 4,
+                "transition": "TYPED|FROM_API|CHAIN_END|SERVER_REDIRECT"
+              }
+            ]
+          },
+          "directoryDown": {
+            "urls": [
+              {
+                "id": 1,
+                "url": "chrome-extension://<spike-extension-id>/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2F&error=net%3A%3AERR_CONNECTION_REFUSED",
+                "visit_count": 1,
+                "typed_count": 0,
+                "hidden": 0
+              }
+            ],
+            "visits": [
+              {
+                "id": 1,
+                "url": "chrome-extension://<spike-extension-id>/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2F&error=net%3A%3AERR_CONNECTION_REFUSED",
+                "fromVisit": 0,
+                "transition": "LINK|FROM_API|CHAIN_START|CHAIN_END"
+              }
+            ]
+          },
+          "strictHttpsFirst": {
+            "urls": [
+              {
+                "id": 1,
+                "url": "http://go/",
+                "visit_count": 1,
+                "typed_count": 0,
+                "hidden": 0
+              },
+              {
+                "id": 2,
+                "url": "https://go/",
+                "visit_count": 1,
+                "typed_count": 1,
+                "hidden": 0
+              },
+              {
+                "id": 3,
+                "url": "http://localhost:4655/",
+                "visit_count": 1,
+                "typed_count": 0,
+                "hidden": 0
+              }
+            ],
+            "visits": [
+              {
+                "id": 1,
+                "url": "http://go/",
+                "fromVisit": 0,
+                "transition": "TYPED|FROM_API|CHAIN_START"
+              },
+              {
+                "id": 2,
+                "url": "https://go/",
+                "fromVisit": 1,
+                "transition": "TYPED|FROM_API|SERVER_REDIRECT"
+              },
+              {
+                "id": 3,
+                "url": "http://localhost:4655/",
+                "fromVisit": 2,
+                "transition": "TYPED|FROM_API|CHAIN_END|SERVER_REDIRECT"
+              }
+            ]
+          }
+        },
+        "rawFile": "<repo>/spike/results/omnibox-raw.json"
+      }
+    },
+    {
+      "id": 4,
+      "title": "A go link clicked on a third-party HTTPS page redirects, with host access to go alone",
+      "mode": "automated",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:22:48.879Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "Host permissions [\"*://go/*\",\"http://localhost:4655/*\"], none for the public page. A real click on <a href=\"http://go/hit/c4-click\"> injected into https://example.com/ ended on http://localhost:4655/-/spike/dest; the stub logged GET /hit/c4-click with Sec-Fetch-Site \"cross-site\", Sec-Fetch-Mode \"navigate\", Sec-Fetch-Dest \"document\", Sec-Fetch-User \"?1\", Referer \"\". Without the extension the same click ended on chrome-error://chromewebdata/ and the stub saw nothing. Only that same-tab click from an HTTPS page is judged. Other ways to a go link, recorded as they arrived at the stub (the http page is a local server under the name thirdparty.example, which the extension has no access to): https-page-link-new-tab: GET /hit/c4-https-page-link-new-tab, Sec-Fetch-Site \"cross-site\", Sec-Fetch-User \"?1\", Referer \"\", Origin \"\"; control missed. https-page-window-open: GET /hit/c4-https-page-window-open, Sec-Fetch-Site \"cross-site\", Sec-Fetch-User \"?1\", Referer \"\", Origin \"\"; control missed. https-page-location-href: GET /hit/c4-https-page-location-href, Sec-Fetch-Site \"cross-site\", Sec-Fetch-User \"?1\", Referer \"\", Origin \"\"; control missed. https-page-form-get: did NOT arrive, tabs ended on [\"chrome-error://chromewebdata/\"] saying \"The information you’re about to submit is not secure Because this form is being submitted using a connection that’s not secure, your information will be visible to others. Go back Send anyway\"; control missed. https-page-form-post: did NOT arrive, tabs ended on [\"chrome-error://chromewebdata/\"] saying \"The information you’re about to submit is not secure Because this form is being submitted using a connection that’s not secure, your information will be visible to others. Go back Send anyway\"; control missed. https-page-iframe-link-target-top: GET /hit/c4-https-page-iframe-link-target-top, Sec-Fetch-Site \"cross-site\", Sec-Fetch-User \"?1\", Referer \"\", Origin \"\"; control missed. http-page-link: GET /hit/c4-http-page-link, Sec-Fetch-Site \"cross-site\", Sec-Fetch-User \"?1\", Referer \"http://thirdparty.example/\", Origin \"\"; control missed. http-page-form-get: GET /hit/c4-http-page-form-get?q=a+b, Sec-Fetch-Site \"cross-site\", Sec-Fetch-User \"?1\", Referer \"http://thirdparty.example/\", Origin \"\"; control missed. http-page-form-post: POST /hit/c4-http-page-form-post, Sec-Fetch-Site \"cross-site\", Sec-Fetch-User \"?1\", Referer \"http://thirdparty.example/\", Origin \"http://thirdparty.example\"; control missed. directory-page-link: GET /hit/c4-directory-page-link, Sec-Fetch-Site \"cross-site\", Sec-Fetch-User \"?1\", Referer \"http://localhost:4655/\", Origin \"\"; control missed. server-302: GET /hit/c4-server-302, Sec-Fetch-Site \"none\", Sec-Fetch-User \"?1\", Referer \"\", Origin \"\"; control missed. meta-refresh: GET /hit/c4-meta-refresh, Sec-Fetch-Site \"cross-site\", Sec-Fetch-User \"\", Referer \"http://thirdparty.example/\", Origin \"\"; control missed. A link that navigates inside an iframe is covered by the check \"extra-subresource\".",
+      "evidence": {
+        "hostPermissions": [
+          "*://go/*",
+          "http://localhost:4655/*"
+        ],
+        "withExtension": {
+          "clickedFrom": "https://example.com/",
+          "href": "http://go/hit/c4-click",
+          "leftThePublicPage": true,
+          "finalUrl": "http://localhost:4655/-/spike/dest",
+          "consoleMessages": [],
+          "failedRequests": [],
+          "directoryLog": [
+            {
+              "seq": 1,
+              "time": "2026-10-13T16:22:26.303+02:00",
+              "method": "GET",
+              "host": "localhost:4655",
+              "requestURI": "/hit/c4-click",
+              "escapedPath": "/hit/c4-click",
+              "rawQuery": "",
+              "secFetchSite": "cross-site",
+              "secFetchMode": "navigate",
+              "secFetchDest": "document",
+              "secFetchUser": "?1",
+              "secPurpose": "",
+              "referer": "",
+              "origin": "",
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+            }
+          ],
+          "reachedDirectory": true
+        },
+        "control": {
+          "clickedFrom": "https://example.com/",
+          "href": "http://go/hit/c4-click",
+          "leftThePublicPage": true,
+          "finalUrl": "chrome-error://chromewebdata/",
+          "consoleMessages": [],
+          "failedRequests": [
+            "http://go/hit/c4-click net::ERR_NAME_NOT_RESOLVED"
+          ],
+          "directoryLog": [],
+          "reachedDirectory": false
+        },
+        "variants": [
+          {
+            "shape": "https-page-link-new-tab",
+            "from": "https://example.com/",
+            "target": "http://go/hit/c4-https-page-link-new-tab",
+            "arrived": true,
+            "request": {
+              "method": "GET",
+              "requestURI": "/hit/c4-https-page-link-new-tab",
+              "secFetchSite": "cross-site",
+              "secFetchMode": "navigate",
+              "secFetchDest": "document",
+              "secFetchUser": "?1",
+              "referer": "",
+              "origin": ""
+            },
+            "tabsEndedOn": [
+              "https://example.com/",
+              "http://localhost:4655/-/spike/dest"
+            ],
+            "controlWithoutExtension": {
+              "shape": "https-page-link-new-tab",
+              "from": "https://example.com/",
+              "target": "http://go/hit/c4-https-page-link-new-tab",
+              "arrived": false,
+              "request": null,
+              "tabsEndedOn": [
+                "https://example.com/",
+                "chrome-error://chromewebdata/"
+              ],
+              "errorPageSays": "This site can’t be reached Check if there is a typo in go. DNS_PROBE_FINISHED_NXDOMAIN Reload"
+            }
+          },
+          {
+            "shape": "https-page-window-open",
+            "from": "https://example.com/",
+            "target": "http://go/hit/c4-https-page-window-open",
+            "arrived": true,
+            "request": {
+              "method": "GET",
+              "requestURI": "/hit/c4-https-page-window-open",
+              "secFetchSite": "cross-site",
+              "secFetchMode": "navigate",
+              "secFetchDest": "document",
+              "secFetchUser": "?1",
+              "referer": "",
+              "origin": ""
+            },
+            "tabsEndedOn": [
+              "https://example.com/",
+              "http://localhost:4655/-/spike/dest"
+            ],
+            "controlWithoutExtension": {
+              "shape": "https-page-window-open",
+              "from": "https://example.com/",
+              "target": "http://go/hit/c4-https-page-window-open",
+              "arrived": false,
+              "request": null,
+              "tabsEndedOn": [
+                "https://example.com/",
+                "chrome-error://chromewebdata/"
+              ],
+              "errorPageSays": "This site can’t be reached Check if there is a typo in go. DNS_PROBE_FINISHED_NXDOMAIN Reload"
+            }
+          },
+          {
+            "shape": "https-page-location-href",
+            "from": "https://example.com/",
+            "target": "http://go/hit/c4-https-page-location-href",
+            "arrived": true,
+            "request": {
+              "method": "GET",
+              "requestURI": "/hit/c4-https-page-location-href",
+              "secFetchSite": "cross-site",
+              "secFetchMode": "navigate",
+              "secFetchDest": "document",
+              "secFetchUser": "?1",
+              "referer": "",
+              "origin": ""
+            },
+            "tabsEndedOn": [
+              "http://localhost:4655/-/spike/dest"
+            ],
+            "controlWithoutExtension": {
+              "shape": "https-page-location-href",
+              "from": "https://example.com/",
+              "target": "http://go/hit/c4-https-page-location-href",
+              "arrived": false,
+              "request": null,
+              "tabsEndedOn": [
+                "chrome-error://chromewebdata/"
+              ],
+              "errorPageSays": "This site can’t be reached Check if there is a typo in go. DNS_PROBE_FINISHED_NXDOMAIN Reload"
+            }
+          },
+          {
+            "shape": "https-page-form-get",
+            "from": "https://example.com/",
+            "target": "http://go/hit/c4-https-page-form-get",
+            "arrived": false,
+            "request": null,
+            "tabsEndedOn": [
+              "chrome-error://chromewebdata/"
+            ],
+            "errorPageSays": "The information you’re about to submit is not secure Because this form is being submitted using a connection that’s not secure, your information will be visible to others. Go back Send anyway",
+            "controlWithoutExtension": {
+              "shape": "https-page-form-get",
+              "from": "https://example.com/",
+              "target": "http://go/hit/c4-https-page-form-get",
+              "arrived": false,
+              "request": null,
+              "tabsEndedOn": [
+                "chrome-error://chromewebdata/"
+              ],
+              "errorPageSays": "The information you’re about to submit is not secure Because this form is being submitted using a connection that’s not secure, your information will be visible to others. Go back Send anyway"
+            }
+          },
+          {
+            "shape": "https-page-form-post",
+            "from": "https://example.com/",
+            "target": "http://go/hit/c4-https-page-form-post",
+            "arrived": false,
+            "request": null,
+            "tabsEndedOn": [
+              "chrome-error://chromewebdata/"
+            ],
+            "errorPageSays": "The information you’re about to submit is not secure Because this form is being submitted using a connection that’s not secure, your information will be visible to others. Go back Send anyway",
+            "controlWithoutExtension": {
+              "shape": "https-page-form-post",
+              "from": "https://example.com/",
+              "target": "http://go/hit/c4-https-page-form-post",
+              "arrived": false,
+              "request": null,
+              "tabsEndedOn": [
+                "chrome-error://chromewebdata/"
+              ],
+              "errorPageSays": "The information you’re about to submit is not secure Because this form is being submitted using a connection that’s not secure, your information will be visible to others. Go back Send anyway"
+            }
+          },
+          {
+            "shape": "https-page-iframe-link-target-top",
+            "from": "https://example.com/",
+            "target": "http://go/hit/c4-https-page-iframe-link-target-top",
+            "arrived": true,
+            "request": {
+              "method": "GET",
+              "requestURI": "/hit/c4-https-page-iframe-link-target-top",
+              "secFetchSite": "cross-site",
+              "secFetchMode": "navigate",
+              "secFetchDest": "document",
+              "secFetchUser": "?1",
+              "referer": "",
+              "origin": ""
+            },
+            "tabsEndedOn": [
+              "http://localhost:4655/-/spike/dest"
+            ],
+            "controlWithoutExtension": {
+              "shape": "https-page-iframe-link-target-top",
+              "from": "https://example.com/",
+              "target": "http://go/hit/c4-https-page-iframe-link-target-top",
+              "arrived": false,
+              "request": null,
+              "tabsEndedOn": [
+                "chrome-error://chromewebdata/"
+              ],
+              "errorPageSays": "This site can’t be reached Check if there is a typo in go. DNS_PROBE_FINISHED_NXDOMAIN Reload"
+            }
+          },
+          {
+            "shape": "http-page-link",
+            "from": "http://thirdparty.example/page",
+            "target": "http://go/hit/c4-http-page-link",
+            "arrived": true,
+            "request": {
+              "method": "GET",
+              "requestURI": "/hit/c4-http-page-link",
+              "secFetchSite": "cross-site",
+              "secFetchMode": "navigate",
+              "secFetchDest": "document",
+              "secFetchUser": "?1",
+              "referer": "http://thirdparty.example/",
+              "origin": ""
+            },
+            "tabsEndedOn": [
+              "http://localhost:4655/-/spike/dest"
+            ],
+            "controlWithoutExtension": {
+              "shape": "http-page-link",
+              "from": "http://thirdparty.example/page",
+              "target": "http://go/hit/c4-http-page-link",
+              "arrived": false,
+              "request": null,
+              "tabsEndedOn": [
+                "chrome-error://chromewebdata/"
+              ],
+              "errorPageSays": "This site can’t be reached Check if there is a typo in go. DNS_PROBE_FINISHED_NXDOMAIN Reload"
+            }
+          },
+          {
+            "shape": "http-page-form-get",
+            "from": "http://thirdparty.example/page",
+            "target": "http://go/hit/c4-http-page-form-get",
+            "arrived": true,
+            "request": {
+              "method": "GET",
+              "requestURI": "/hit/c4-http-page-form-get?q=a+b",
+              "secFetchSite": "cross-site",
+              "secFetchMode": "navigate",
+              "secFetchDest": "document",
+              "secFetchUser": "?1",
+              "referer": "http://thirdparty.example/",
+              "origin": ""
+            },
+            "tabsEndedOn": [
+              "http://localhost:4655/-/spike/dest"
+            ],
+            "controlWithoutExtension": {
+              "shape": "http-page-form-get",
+              "from": "http://thirdparty.example/page",
+              "target": "http://go/hit/c4-http-page-form-get",
+              "arrived": false,
+              "request": null,
+              "tabsEndedOn": [
+                "chrome-error://chromewebdata/"
+              ],
+              "errorPageSays": "This site can’t be reached Check if there is a typo in go. DNS_PROBE_FINISHED_NXDOMAIN Reload"
+            }
+          },
+          {
+            "shape": "http-page-form-post",
+            "from": "http://thirdparty.example/page",
+            "target": "http://go/hit/c4-http-page-form-post",
+            "arrived": true,
+            "request": {
+              "method": "POST",
+              "requestURI": "/hit/c4-http-page-form-post",
+              "secFetchSite": "cross-site",
+              "secFetchMode": "navigate",
+              "secFetchDest": "document",
+              "secFetchUser": "?1",
+              "referer": "http://thirdparty.example/",
+              "origin": "http://thirdparty.example"
+            },
+            "tabsEndedOn": [
+              "http://localhost:4655/-/spike/dest"
+            ],
+            "controlWithoutExtension": {
+              "shape": "http-page-form-post",
+              "from": "http://thirdparty.example/page",
+              "target": "http://go/hit/c4-http-page-form-post",
+              "arrived": false,
+              "request": null,
+              "tabsEndedOn": [
+                "chrome-error://chromewebdata/"
+              ],
+              "errorPageSays": "This site can’t be reached Check if there is a typo in go. DNS_PROBE_FINISHED_NXDOMAIN"
+            }
+          },
+          {
+            "shape": "directory-page-link",
+            "from": "http://localhost:4655/",
+            "target": "http://go/hit/c4-directory-page-link",
+            "arrived": true,
+            "request": {
+              "method": "GET",
+              "requestURI": "/hit/c4-directory-page-link",
+              "secFetchSite": "cross-site",
+              "secFetchMode": "navigate",
+              "secFetchDest": "document",
+              "secFetchUser": "?1",
+              "referer": "http://localhost:4655/",
+              "origin": ""
+            },
+            "tabsEndedOn": [
+              "http://localhost:4655/-/spike/dest"
+            ],
+            "controlWithoutExtension": {
+              "shape": "directory-page-link",
+              "from": "http://localhost:4655/",
+              "target": "http://go/hit/c4-directory-page-link",
+              "arrived": false,
+              "request": null,
+              "tabsEndedOn": [
+                "chrome-error://chromewebdata/"
+              ],
+              "errorPageSays": "This site can’t be reached Check if there is a typo in go. DNS_PROBE_FINISHED_NXDOMAIN Reload"
+            }
+          },
+          {
+            "shape": "server-302",
+            "from": "http://thirdparty.example/redirect?to=http://go/hit/c4-server-302",
+            "target": "http://go/hit/c4-server-302",
+            "gotoError": null,
+            "arrived": true,
+            "request": {
+              "method": "GET",
+              "requestURI": "/hit/c4-server-302",
+              "secFetchSite": "none",
+              "secFetchMode": "navigate",
+              "secFetchDest": "document",
+              "secFetchUser": "?1",
+              "referer": "",
+              "origin": ""
+            },
+            "tabsEndedOn": [
+              "http://localhost:4655/-/spike/dest"
+            ],
+            "controlWithoutExtension": {
+              "shape": "server-302",
+              "from": "http://thirdparty.example/redirect?to=http://go/hit/c4-server-302",
+              "target": "http://go/hit/c4-server-302",
+              "gotoError": "page.goto: net::ERR_NAME_NOT_RESOLVED at http://thirdparty.example/redirect?to=http%3A%2F%2Fgo%2Fhit%2Fc4-server-302",
+              "arrived": false,
+              "request": null,
+              "tabsEndedOn": [
+                "chrome-error://chromewebdata/"
+              ],
+              "errorPageSays": "This site can’t be reached Check if there is a typo in go. DNS_PROBE_FINISHED_NXDOMAIN Reload"
+            }
+          },
+          {
+            "shape": "meta-refresh",
+            "from": "http://thirdparty.example/meta?to=http://go/hit/c4-meta-refresh",
+            "target": "http://go/hit/c4-meta-refresh",
+            "gotoError": null,
+            "arrived": true,
+            "request": {
+              "method": "GET",
+              "requestURI": "/hit/c4-meta-refresh",
+              "secFetchSite": "cross-site",
+              "secFetchMode": "navigate",
+              "secFetchDest": "document",
+              "secFetchUser": "",
+              "referer": "http://thirdparty.example/",
+              "origin": ""
+            },
+            "tabsEndedOn": [
+              "http://localhost:4655/-/spike/dest"
+            ],
+            "controlWithoutExtension": {
+              "shape": "meta-refresh",
+              "from": "http://thirdparty.example/meta?to=http://go/hit/c4-meta-refresh",
+              "target": "http://go/hit/c4-meta-refresh",
+              "gotoError": null,
+              "arrived": false,
+              "request": null,
+              "tabsEndedOn": [
+                "chrome-error://chromewebdata/"
+              ],
+              "errorPageSays": "This site can’t be reached Check if there is a typo in go. DNS_PROBE_FINISHED_NXDOMAIN Reload"
+            }
+          }
+        ],
+        "headersSeenByStub": {
+          "secFetchSite": "cross-site",
+          "secFetchMode": "navigate",
+          "secFetchDest": "document",
+          "secFetchUser": "?1",
+          "referer": "",
+          "origin": ""
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "https://go/ redirects, and http://go/ redirects with HTTPS-First mode on",
+      "mode": "proxy",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:22:56.144Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "https://go/hit/c6-https reached the stub (control without the extension: net::ERR_NAME_NOT_RESOLVED). Default settings, with Chromium's HttpsUpgrades feature on as in Chrome (Playwright normally switches it off): the HTTP-only site http://godir-spike-probe.com/probe was requested as http://godir-spike-probe.com/probe -> https://godir-spike-probe.com/probe -> http://godir-spike-probe.com/probe and loaded; http://go/ reached the stub (http://go/hit/c6-defaults -> http://localhost:4655/hit/c6-defaults -> http://localhost:4655/-/spike/dest), and the extension's onBeforeRequest saw [\"http://go/hit/c6-defaults\"]. HTTPS-First mode was switched on through the profile's Preferences file, not the settings page. \"https_only_mode_enabled\" (confirmed on: http://godir-spike-probe.com/probe was tried over HTTPS and blocked with net::ERR_BLOCKED_BY_CLIENT): http://go/ reached the stub with no warning page (http://go/hit/c6-publicAndPrivateSites -> https://go/hit/c6-publicAndPrivateSites -> http://localhost:4655/hit/c6-publicAndPrivateSites -> http://localhost:4655/-/spike/dest); the extension's onBeforeRequest saw [\"https://go/hit/c6-publicAndPrivateSites\"]; control without the extension: net::ERR_BLOCKED_BY_CLIENT. \"https_first_balanced_mode_enabled\" (confirmed on: http://godir-spike-probe.com/probe was tried over HTTPS and blocked with net::ERR_BLOCKED_BY_CLIENT): http://go/ reached the stub with no warning page (http://go/hit/c6-publicSitesOnly -> http://localhost:4655/hit/c6-publicSitesOnly -> http://localhost:4655/-/spike/dest); the extension's onBeforeRequest saw [\"http://go/hit/c6-publicSitesOnly\"]; control without the extension: net::ERR_NAME_NOT_RESOLVED.",
+      "evidence": {
+        "https": {
+          "withExtension": {
+            "asked": "https://go/hit/c6-https",
+            "error": null,
+            "httpStatus": 200,
+            "finalUrl": "http://localhost:4655/-/spike/dest",
+            "requests": [
+              "https://go/hit/c6-https",
+              "http://localhost:4655/hit/c6-https",
+              "http://localhost:4655/-/spike/dest"
+            ],
+            "directoryLog": [
+              {
+                "seq": 14,
+                "time": "2026-10-13T16:22:49.669+02:00",
+                "method": "GET",
+                "host": "localhost:4655",
+                "requestURI": "/hit/c6-https",
+                "escapedPath": "/hit/c6-https",
+                "rawQuery": "",
+                "secFetchSite": "none",
+                "secFetchMode": "navigate",
+                "secFetchDest": "document",
+                "secFetchUser": "?1",
+                "secPurpose": "",
+                "referer": "",
+                "origin": "",
+                "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+              }
+            ],
+            "reachedDirectory": true
+          },
+          "control": {
+            "asked": "https://go/hit/c6-https",
+            "error": "page.goto: net::ERR_NAME_NOT_RESOLVED at https://go/hit/c6-https",
+            "httpStatus": null,
+            "finalUrl": "chrome-error://chromewebdata/",
+            "requests": [
+              "https://go/hit/c6-https"
+            ],
+            "directoryLog": [],
+            "reachedDirectory": false
+          }
+        },
+        "httpOnlySiteWithModeOff": {
+          "asked": "http://godir-spike-probe.com/probe",
+          "error": null,
+          "httpStatus": 200,
+          "finalUrl": "http://godir-spike-probe.com/probe",
+          "requests": [
+            "http://godir-spike-probe.com/probe",
+            "https://godir-spike-probe.com/probe",
+            "http://godir-spike-probe.com/probe"
+          ],
+          "directoryLog": [],
+          "decoyLog": [
+            {
+              "seq": 1,
+              "time": "2026-10-13T16:22:51.143+02:00",
+              "method": "GET",
+              "host": "godir-spike-probe.com",
+              "requestURI": "/probe",
+              "escapedPath": "/probe",
+              "rawQuery": "",
+              "secFetchSite": "",
+              "secFetchMode": "",
+              "secFetchDest": "",
+              "secFetchUser": "",
+              "secPurpose": "",
+              "referer": "",
+              "origin": "",
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+            }
+          ],
+          "reachedDirectory": false
+        },
+        "goWithDefaultSettings": {
+          "go": {
+            "asked": "http://go/hit/c6-defaults",
+            "error": null,
+            "httpStatus": 200,
+            "finalUrl": "http://localhost:4655/-/spike/dest",
+            "requests": [
+              "http://go/hit/c6-defaults",
+              "http://localhost:4655/hit/c6-defaults",
+              "http://localhost:4655/-/spike/dest"
+            ],
+            "directoryLog": [
+              {
+                "seq": 15,
+                "time": "2026-10-13T16:22:51.958+02:00",
+                "method": "GET",
+                "host": "localhost:4655",
+                "requestURI": "/hit/c6-defaults",
+                "escapedPath": "/hit/c6-defaults",
+                "rawQuery": "",
+                "secFetchSite": "none",
+                "secFetchMode": "navigate",
+                "secFetchDest": "document",
+                "secFetchUser": "?1",
+                "secPurpose": "",
+                "referer": "",
+                "origin": "",
+                "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+              }
+            ],
+            "reachedDirectory": true
+          },
+          "goSeen": [
+            "http://go/hit/c6-defaults"
+          ]
+        },
+        "modes": {
+          "publicAndPrivateSites": {
+            "pref": "https_only_mode_enabled",
+            "modeVerifiedOn": true,
+            "redirected": true,
+            "controlMissed": true,
+            "withExtension": {
+              "httpOnlySite": {
+                "asked": "http://godir-spike-probe.com/probe",
+                "error": "page.goto: net::ERR_BLOCKED_BY_CLIENT at http://godir-spike-probe.com/probe",
+                "httpStatus": null,
+                "finalUrl": "chrome-error://chromewebdata/",
+                "requests": [
+                  "http://godir-spike-probe.com/probe",
+                  "https://godir-spike-probe.com/probe"
+                ],
+                "directoryLog": [],
+                "decoyLog": [],
+                "reachedDirectory": false
+              },
+              "go": {
+                "asked": "http://go/hit/c6-publicAndPrivateSites",
+                "error": null,
+                "httpStatus": 200,
+                "finalUrl": "http://localhost:4655/-/spike/dest",
+                "requests": [
+                  "http://go/hit/c6-publicAndPrivateSites",
+                  "https://go/hit/c6-publicAndPrivateSites",
+                  "http://localhost:4655/hit/c6-publicAndPrivateSites",
+                  "http://localhost:4655/-/spike/dest"
+                ],
+                "directoryLog": [
+                  {
+                    "seq": 16,
+                    "time": "2026-10-13T16:22:52.992+02:00",
+                    "method": "GET",
+                    "host": "localhost:4655",
+                    "requestURI": "/hit/c6-publicAndPrivateSites",
+                    "escapedPath": "/hit/c6-publicAndPrivateSites",
+                    "rawQuery": "",
+                    "secFetchSite": "none",
+                    "secFetchMode": "navigate",
+                    "secFetchDest": "document",
+                    "secFetchUser": "?1",
+                    "secPurpose": "",
+                    "referer": "",
+                    "origin": "",
+                    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+                  }
+                ],
+                "reachedDirectory": true
+              },
+              "goSeen": [
+                "https://go/hit/c6-publicAndPrivateSites"
+              ],
+              "prefAfterExit": {
+                "https_only_mode_enabled": true
+              }
+            },
+            "control": {
+              "httpOnlySite": {
+                "asked": "http://godir-spike-probe.com/probe",
+                "error": "page.goto: net::ERR_BLOCKED_BY_CLIENT at http://godir-spike-probe.com/probe",
+                "httpStatus": null,
+                "finalUrl": "chrome-error://chromewebdata/",
+                "requests": [
+                  "http://godir-spike-probe.com/probe",
+                  "https://godir-spike-probe.com/probe"
+                ],
+                "directoryLog": [],
+                "decoyLog": [],
+                "reachedDirectory": false
+              },
+              "go": {
+                "asked": "http://go/hit/c6-publicAndPrivateSites",
+                "error": "page.goto: net::ERR_BLOCKED_BY_CLIENT at http://go/hit/c6-publicAndPrivateSites",
+                "httpStatus": null,
+                "finalUrl": "chrome-error://chromewebdata/",
+                "requests": [
+                  "http://go/hit/c6-publicAndPrivateSites",
+                  "https://go/hit/c6-publicAndPrivateSites"
+                ],
+                "directoryLog": [],
+                "reachedDirectory": false
+              },
+              "prefAfterExit": {
+                "https_only_mode_enabled": true
+              }
+            }
+          },
+          "publicSitesOnly": {
+            "pref": "https_first_balanced_mode_enabled",
+            "modeVerifiedOn": true,
+            "redirected": true,
+            "controlMissed": true,
+            "withExtension": {
+              "httpOnlySite": {
+                "asked": "http://godir-spike-probe.com/probe",
+                "error": "page.goto: net::ERR_BLOCKED_BY_CLIENT at http://godir-spike-probe.com/probe",
+                "httpStatus": null,
+                "finalUrl": "chrome-error://chromewebdata/",
+                "requests": [
+                  "http://godir-spike-probe.com/probe",
+                  "https://godir-spike-probe.com/probe"
+                ],
+                "directoryLog": [],
+                "decoyLog": [],
+                "reachedDirectory": false
+              },
+              "go": {
+                "asked": "http://go/hit/c6-publicSitesOnly",
+                "error": null,
+                "httpStatus": 200,
+                "finalUrl": "http://localhost:4655/-/spike/dest",
+                "requests": [
+                  "http://go/hit/c6-publicSitesOnly",
+                  "http://localhost:4655/hit/c6-publicSitesOnly",
+                  "http://localhost:4655/-/spike/dest"
+                ],
+                "directoryLog": [
+                  {
+                    "seq": 17,
+                    "time": "2026-10-13T16:22:54.986+02:00",
+                    "method": "GET",
+                    "host": "localhost:4655",
+                    "requestURI": "/hit/c6-publicSitesOnly",
+                    "escapedPath": "/hit/c6-publicSitesOnly",
+                    "rawQuery": "",
+                    "secFetchSite": "none",
+                    "secFetchMode": "navigate",
+                    "secFetchDest": "document",
+                    "secFetchUser": "?1",
+                    "secPurpose": "",
+                    "referer": "",
+                    "origin": "",
+                    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+                  }
+                ],
+                "reachedDirectory": true
+              },
+              "goSeen": [
+                "http://go/hit/c6-publicSitesOnly"
+              ],
+              "prefAfterExit": {
+                "https_first_balanced_mode_enabled": true
+              }
+            },
+            "control": {
+              "httpOnlySite": {
+                "asked": "http://godir-spike-probe.com/probe",
+                "error": "page.goto: net::ERR_BLOCKED_BY_CLIENT at http://godir-spike-probe.com/probe",
+                "httpStatus": null,
+                "finalUrl": "chrome-error://chromewebdata/",
+                "requests": [
+                  "http://godir-spike-probe.com/probe",
+                  "https://godir-spike-probe.com/probe"
+                ],
+                "directoryLog": [],
+                "decoyLog": [],
+                "reachedDirectory": false
+              },
+              "go": {
+                "asked": "http://go/hit/c6-publicSitesOnly",
+                "error": "page.goto: net::ERR_NAME_NOT_RESOLVED at http://go/hit/c6-publicSitesOnly",
+                "httpStatus": null,
+                "finalUrl": "chrome-error://chromewebdata/",
+                "requests": [
+                  "http://go/hit/c6-publicSitesOnly"
+                ],
+                "directoryLog": [],
+                "reachedDirectory": false
+              },
+              "prefAfterExit": {
+                "https_first_balanced_mode_enabled": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "The redirect happens when go does not resolve, and when go resolves somewhere else",
+      "mode": "proxy",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:22:59.300Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "go unresolved: with the extension the stub logged [\"/hit/c7-unresolved\"]; without it, page.goto: net::ERR_NAME_NOT_RESOLVED at http://go/hit/c7-unresolved. go mapped to the decoy on 4656 (a resolver rule standing in for a hosts entry): with the extension the Directory stub logged [\"/hit/c7-mapped\"] and the decoy logged 0 requests; without it the decoy logged [\"go/hit/c7-mapped\"].",
+      "evidence": {
+        "resolverRule": "--host-resolver-rules=MAP go 127.0.0.1:4656",
+        "unresolved": {
+          "withExtension": {
+            "asked": "http://go/hit/c7-unresolved",
+            "error": null,
+            "httpStatus": 200,
+            "finalUrl": "http://localhost:4655/-/spike/dest",
+            "requests": [
+              "http://go/hit/c7-unresolved",
+              "http://localhost:4655/hit/c7-unresolved",
+              "http://localhost:4655/-/spike/dest"
+            ],
+            "directoryLog": [
+              {
+                "seq": 18,
+                "time": "2026-10-13T16:22:56.956+02:00",
+                "method": "GET",
+                "host": "localhost:4655",
+                "requestURI": "/hit/c7-unresolved",
+                "escapedPath": "/hit/c7-unresolved",
+                "rawQuery": "",
+                "secFetchSite": "none",
+                "secFetchMode": "navigate",
+                "secFetchDest": "document",
+                "secFetchUser": "?1",
+                "secPurpose": "",
+                "referer": "",
+                "origin": "",
+                "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+              }
+            ],
+            "reachedDirectory": true
+          },
+          "control": {
+            "asked": "http://go/hit/c7-unresolved",
+            "error": "page.goto: net::ERR_NAME_NOT_RESOLVED at http://go/hit/c7-unresolved",
+            "httpStatus": null,
+            "finalUrl": "chrome-error://chromewebdata/",
+            "requests": [
+              "http://go/hit/c7-unresolved"
+            ],
+            "directoryLog": [],
+            "reachedDirectory": false
+          }
+        },
+        "mapped": {
+          "withExtension": {
+            "asked": "http://go/hit/c7-mapped",
+            "error": null,
+            "httpStatus": 200,
+            "finalUrl": "http://localhost:4655/-/spike/dest",
+            "requests": [
+              "http://go/hit/c7-mapped",
+              "http://localhost:4655/hit/c7-mapped",
+              "http://localhost:4655/-/spike/dest"
+            ],
+            "directoryLog": [
+              {
+                "seq": 19,
+                "time": "2026-10-13T16:22:58.496+02:00",
+                "method": "GET",
+                "host": "localhost:4655",
+                "requestURI": "/hit/c7-mapped",
+                "escapedPath": "/hit/c7-mapped",
+                "rawQuery": "",
+                "secFetchSite": "none",
+                "secFetchMode": "navigate",
+                "secFetchDest": "document",
+                "secFetchUser": "?1",
+                "secPurpose": "",
+                "referer": "",
+                "origin": "",
+                "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+              }
+            ],
+            "decoyLog": [],
+            "reachedDirectory": true
+          },
+          "control": {
+            "asked": "http://go/hit/c7-mapped",
+            "error": null,
+            "httpStatus": 200,
+            "finalUrl": "http://go/hit/c7-mapped",
+            "requests": [
+              "http://go/hit/c7-mapped"
+            ],
+            "directoryLog": [],
+            "decoyLog": [
+              {
+                "seq": 1,
+                "time": "2026-10-13T16:22:59.198+02:00",
+                "method": "GET",
+                "host": "go",
+                "requestURI": "/hit/c7-mapped",
+                "escapedPath": "/hit/c7-mapped",
+                "rawQuery": "",
+                "secFetchSite": "",
+                "secFetchMode": "",
+                "secFetchDest": "",
+                "secFetchUser": "",
+                "secPurpose": "",
+                "referer": "",
+                "origin": "",
+                "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+              }
+            ],
+            "reachedDirectory": false
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "The query reaches the stub and the fragment survives to the destination",
+      "mode": "proxy",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:23:01.547Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "http://go/hit/foo?x=1#frag: the stub received requestURI \"/hit/foo?x=1\" and the tab ended on http://localhost:4655/-/spike/dest#frag. http://go/m8?x=1#frag (stub answers 200): requestURI \"/m8?x=1\", tab on http://localhost:4655/m8?x=1#frag. Control without the extension: page.goto: net::ERR_NAME_NOT_RESOLVED at http://go/hit/foo?x=1#frag.",
+      "evidence": {
+        "viaRedirect": {
+          "withExtension": {
+            "asked": "http://go/hit/foo?x=1#frag",
+            "error": null,
+            "httpStatus": 200,
+            "finalUrl": "http://localhost:4655/-/spike/dest#frag",
+            "requests": [
+              "http://go/hit/foo?x=1",
+              "http://localhost:4655/hit/foo?x=1",
+              "http://localhost:4655/-/spike/dest"
+            ],
+            "directoryLog": [
+              {
+                "seq": 20,
+                "time": "2026-10-13T16:22:59.922+02:00",
+                "method": "GET",
+                "host": "localhost:4655",
+                "requestURI": "/hit/foo?x=1",
+                "escapedPath": "/hit/foo",
+                "rawQuery": "x=1",
+                "secFetchSite": "none",
+                "secFetchMode": "navigate",
+                "secFetchDest": "document",
+                "secFetchUser": "?1",
+                "secPurpose": "",
+                "referer": "",
+                "origin": "",
+                "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+              }
+            ],
+            "reachedDirectory": true
+          },
+          "control": {
+            "asked": "http://go/hit/foo?x=1#frag",
+            "error": "page.goto: net::ERR_NAME_NOT_RESOLVED at http://go/hit/foo?x=1#frag",
+            "httpStatus": null,
+            "finalUrl": "chrome-error://chromewebdata/",
+            "requests": [
+              "http://go/hit/foo?x=1"
+            ],
+            "directoryLog": [],
+            "reachedDirectory": false
+          }
+        },
+        "direct": {
+          "asked": "http://go/m8?x=1#frag",
+          "error": null,
+          "httpStatus": 200,
+          "finalUrl": "http://localhost:4655/m8?x=1#frag",
+          "requests": [
+            "http://go/m8?x=1",
+            "http://localhost:4655/m8?x=1"
+          ],
+          "directoryLog": [
+            {
+              "seq": 21,
+              "time": "2026-10-13T16:23:01.446+02:00",
+              "method": "GET",
+              "host": "localhost:4655",
+              "requestURI": "/m8?x=1",
+              "escapedPath": "/m8",
+              "rawQuery": "x=1",
+              "secFetchSite": "none",
+              "secFetchMode": "navigate",
+              "secFetchDest": "document",
+              "secFetchUser": "?1",
+              "secPurpose": "",
+              "referer": "",
+              "origin": "",
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+            }
+          ],
+          "reachedDirectory": true
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "go/a%20b%2Fc reaches the stub byte for byte",
+      "mode": "proxy",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:23:05.782Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "http://go/a%20b%2Fc arrived as requestURI \"/a%20b%2Fc\" (control without the extension: page.goto: net::ERR_NAME_NOT_RESOLVED at http://go/a%20b%2Fc). Other inputs, recorded and not judged, as \"asked -> requestURI the stub received\" (or what happened instead): \"go//double\" -> \"//double\", \"go/a/../b\" -> \"/b\", \"go/a/./b\" -> \"/a/b\", \"go/%2e%2e/x\" -> \"/x\", \"go/a/%2e/b\" -> \"/a/b\", \"go/a/%2E%2E/b\" -> \"/b\", \"go/a/%2E%2E%2Fb\" -> \"/a/%2E%2E%2Fb\", \"go/a/..%2Fb\" -> \"/a/..%2Fb\", \"go/a%2fb%2Fc\" -> \"/a%2fb%2Fc\", \"go/CamelCase/UPPER\" -> \"/CamelCase/UPPER\", \"go/zażółć/日本\" -> \"/za%C5%BC%C3%B3%C5%82%C4%87/%E6%97%A5%E6%9C%AC\", \"go/a+b?q=c+d\" -> \"/a+b?q=c+d\", \"go/a b?q=c d\" -> \"/a%20b?q=c%20d\", \"go/trailing-space \" -> \"/trailing-space\", \"go/a\\tb\" -> \"/ab\", \"go/a%3Fb%23c\" -> \"/a%3Fb%23c\", \"go/a%2520b\" -> \"/a%2520b\", \"go/a\\\\b\" -> \"/a/b\", \"go/a|\\\"<>b\" -> \"/a%7C%22%3C%3Eb\", \"go/a%00b\" -> \"/a%00b\", \"go/a%0Ab\" -> \"/a%0Ab\", \"go/a?x=%2F&y=a%26b\" -> \"/a?x=%2F&y=a%26b\", \"go/a%zzb\" -> redirected, but answered HTTP 400 before the stub's handler ran, \"go/%\" -> redirected, but answered HTTP 400 before the stub's handler ran, \"go/longlonglonglongl… (4003 characters)\" -> \"/longlonglonglonglon… (4001 characters)\", \"GO/upper-host\" -> \"/upper-host\", \"go:80/default-port\" -> \"/default-port\", \"go./trailing-dot\" -> not redirected (net::ERR_NAME_NOT_RESOLVED), \"go:8080/other-port\" -> not redirected (net::ERR_NAME_NOT_RESOLVED), \"user@go/userinfo\" -> not redirected (net::ERR_NAME_NOT_RESOLVED). These went through page.goto, so they show Chromium's URL handling, not what the address bar does with typed text.",
+      "evidence": {
+        "main": {
+          "withExtension": {
+            "asked": "http://go/a%20b%2Fc",
+            "error": null,
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/a%20b%2Fc",
+            "requests": [
+              "http://go/a%20b%2Fc",
+              "http://localhost:4655/a%20b%2Fc"
+            ],
+            "directoryLog": [
+              {
+                "seq": 22,
+                "time": "2026-10-13T16:23:02.177+02:00",
+                "method": "GET",
+                "host": "localhost:4655",
+                "requestURI": "/a%20b%2Fc",
+                "escapedPath": "/a%20b%2Fc",
+                "rawQuery": "",
+                "secFetchSite": "none",
+                "secFetchMode": "navigate",
+                "secFetchDest": "document",
+                "secFetchUser": "?1",
+                "secPurpose": "",
+                "referer": "",
+                "origin": "",
+                "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+              }
+            ],
+            "reachedDirectory": true
+          },
+          "control": {
+            "asked": "http://go/a%20b%2Fc",
+            "error": "page.goto: net::ERR_NAME_NOT_RESOLVED at http://go/a%20b%2Fc",
+            "httpStatus": null,
+            "finalUrl": "chrome-error://chromewebdata/",
+            "requests": [
+              "http://go/a%20b%2Fc"
+            ],
+            "directoryLog": [],
+            "reachedDirectory": false
+          }
+        },
+        "variants": [
+          {
+            "asked": "http://go//double",
+            "outcome": "arrived",
+            "requestURI": "//double",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655//double",
+            "error": null
+          },
+          {
+            "asked": "http://go/a/../b",
+            "outcome": "arrived",
+            "requestURI": "/b",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/b",
+            "error": null
+          },
+          {
+            "asked": "http://go/a/./b",
+            "outcome": "arrived",
+            "requestURI": "/a/b",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/a/b",
+            "error": null
+          },
+          {
+            "asked": "http://go/%2e%2e/x",
+            "outcome": "arrived",
+            "requestURI": "/x",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/x",
+            "error": null
+          },
+          {
+            "asked": "http://go/a/%2e/b",
+            "outcome": "arrived",
+            "requestURI": "/a/b",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/a/b",
+            "error": null
+          },
+          {
+            "asked": "http://go/a/%2E%2E/b",
+            "outcome": "arrived",
+            "requestURI": "/b",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/b",
+            "error": null
+          },
+          {
+            "asked": "http://go/a/%2E%2E%2Fb",
+            "outcome": "arrived",
+            "requestURI": "/a/%2E%2E%2Fb",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/a/%2E%2E%2Fb",
+            "error": null
+          },
+          {
+            "asked": "http://go/a/..%2Fb",
+            "outcome": "arrived",
+            "requestURI": "/a/..%2Fb",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/a/..%2Fb",
+            "error": null
+          },
+          {
+            "asked": "http://go/a%2fb%2Fc",
+            "outcome": "arrived",
+            "requestURI": "/a%2fb%2Fc",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/a%2fb%2Fc",
+            "error": null
+          },
+          {
+            "asked": "http://go/CamelCase/UPPER",
+            "outcome": "arrived",
+            "requestURI": "/CamelCase/UPPER",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/CamelCase/UPPER",
+            "error": null
+          },
+          {
+            "asked": "http://go/zażółć/日本",
+            "outcome": "arrived",
+            "requestURI": "/za%C5%BC%C3%B3%C5%82%C4%87/%E6%97%A5%E6%9C%AC",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/za%C5%BC%C3%B3%C5%82%C4%87/%E6%97%A5%E6%9C%AC",
+            "error": null
+          },
+          {
+            "asked": "http://go/a+b?q=c+d",
+            "outcome": "arrived",
+            "requestURI": "/a+b?q=c+d",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/a+b?q=c+d",
+            "error": null
+          },
+          {
+            "asked": "http://go/a b?q=c d",
+            "outcome": "arrived",
+            "requestURI": "/a%20b?q=c%20d",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/a%20b?q=c%20d",
+            "error": null
+          },
+          {
+            "asked": "http://go/trailing-space ",
+            "outcome": "arrived",
+            "requestURI": "/trailing-space",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/trailing-space",
+            "error": null
+          },
+          {
+            "asked": "http://go/a\tb",
+            "outcome": "arrived",
+            "requestURI": "/ab",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/ab",
+            "error": null
+          },
+          {
+            "asked": "http://go/a%3Fb%23c",
+            "outcome": "arrived",
+            "requestURI": "/a%3Fb%23c",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/a%3Fb%23c",
+            "error": null
+          },
+          {
+            "asked": "http://go/a%2520b",
+            "outcome": "arrived",
+            "requestURI": "/a%2520b",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/a%2520b",
+            "error": null
+          },
+          {
+            "asked": "http://go/a\\b",
+            "outcome": "arrived",
+            "requestURI": "/a/b",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/a/b",
+            "error": null
+          },
+          {
+            "asked": "http://go/a|\"<>b",
+            "outcome": "arrived",
+            "requestURI": "/a%7C%22%3C%3Eb",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/a%7C%22%3C%3Eb",
+            "error": null
+          },
+          {
+            "asked": "http://go/a%00b",
+            "outcome": "arrived",
+            "requestURI": "/a%00b",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/a%00b",
+            "error": null
+          },
+          {
+            "asked": "http://go/a%0Ab",
+            "outcome": "arrived",
+            "requestURI": "/a%0Ab",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/a%0Ab",
+            "error": null
+          },
+          {
+            "asked": "http://go/a?x=%2F&y=a%26b",
+            "outcome": "arrived",
+            "requestURI": "/a?x=%2F&y=a%26b",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/a?x=%2F&y=a%26b",
+            "error": null
+          },
+          {
+            "asked": "http://go/a%zzb",
+            "outcome": "redirected, but answered HTTP 400 before the stub's handler ran",
+            "requestURI": null,
+            "httpStatus": 400,
+            "finalUrl": "http://localhost:4655/a%zzb",
+            "error": null
+          },
+          {
+            "asked": "http://go/%",
+            "outcome": "redirected, but answered HTTP 400 before the stub's handler ran",
+            "requestURI": null,
+            "httpStatus": 400,
+            "finalUrl": "http://localhost:4655/%",
+            "error": null
+          },
+          {
+            "asked": "http://go/longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong",
+            "outcome": "arrived",
+            "requestURI": "/longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong",
+            "error": null
+          },
+          {
+            "asked": "http://GO/upper-host",
+            "outcome": "arrived",
+            "requestURI": "/upper-host",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/upper-host",
+            "error": null
+          },
+          {
+            "asked": "http://go:80/default-port",
+            "outcome": "arrived",
+            "requestURI": "/default-port",
+            "httpStatus": 404,
+            "finalUrl": "http://localhost:4655/default-port",
+            "error": null
+          },
+          {
+            "asked": "http://go./trailing-dot",
+            "outcome": "not redirected (net::ERR_NAME_NOT_RESOLVED)",
+            "requestURI": null,
+            "httpStatus": null,
+            "finalUrl": "chrome-error://chromewebdata/",
+            "error": "page.goto: net::ERR_NAME_NOT_RESOLVED at http://go./trailing-dot"
+          },
+          {
+            "asked": "http://go:8080/other-port",
+            "outcome": "not redirected (net::ERR_NAME_NOT_RESOLVED)",
+            "requestURI": null,
+            "httpStatus": null,
+            "finalUrl": "chrome-error://chromewebdata/",
+            "error": "page.goto: net::ERR_NAME_NOT_RESOLVED at http://go:8080/other-port"
+          },
+          {
+            "asked": "http://user@go/userinfo",
+            "outcome": "not redirected (net::ERR_NAME_NOT_RESOLVED)",
+            "requestURI": null,
+            "httpStatus": null,
+            "finalUrl": "chrome-error://chromewebdata/",
+            "error": "page.goto: net::ERR_NAME_NOT_RESOLVED at http://user@go/userinfo"
+          }
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "title": "The address bar's autocomplete offers go links used before",
+      "mode": "proxy",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:24:15.200Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "With http://go/hit/x visited once (CDP Page.navigate, transitionType \"typed\"; tab ended on http://localhost:4655/-/spike/dest), \"go/h\" offers it in row 8 of 8: history-url [HistoryURL 1390] -> http://go/hit/x. The rows above it are the typed text and search suggestions from the search engine, whose number varies. The default match for \"go/h\" stays url-what-you-typed [HistoryURL 1403] -> http://go/h with inline completion \"\", so the used link is a suggestion to pick, not what Enter opens, and nothing is completed in the address bar. \"go/hit\" offers it in row 8 of 8: history-url [HistoryURL 1390] -> http://go/hit/x. \"go/\" offers it in row 7 of 7: history-url [HistoryURL 1390] -> http://go/hit/x. With the typed credit removed (synthetic), \"go/h\" offers it in row 8 of 8: history-url [HistoryQuick 751] -> http://go/hit/x. \"Pass\" here means only that the link is somewhere in the list; whether that row is visible in Chrome's real dropdown is for the manual run (step D). Suggestions learned from address-bar picks (the Shortcuts provider) cannot be produced here. PROXY ONLY: this is Chromium's autocomplete code answering through chrome://omnibox in Playwright's headless Chromium, not a person typing in Chrome stable. The manual run must still confirm it.",
+      "evidence": {
+        "afterUsingTheLink": {
+          "how": "Same profile after also visiting http://go/hit/x (CDP Page.navigate, transitionType \"typed\").",
+          "queries": [
+            {
+              "input": "go/h",
+              "inputType": "unknown",
+              "isTypedHost": true,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1403] -> http://go/h",
+              "others": [
+                "search-what-you-typed [Search 1300 keyword=google.com] -> https://www.google.com/search?q=go%2Fh&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+                "history-url [HistoryURL 1390] -> http://go/hit/x"
+              ],
+              "serverSuggestionsOmitted": 5
+            },
+            {
+              "input": "go/hit",
+              "inputType": "unknown",
+              "isTypedHost": true,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1403] -> http://go/hit",
+              "others": [
+                "search-what-you-typed [Search 1251 keyword=google.com] -> https://www.google.com/search?q=go%2Fhit&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+                "history-url [HistoryURL 1390] -> http://go/hit/x"
+              ],
+              "serverSuggestionsOmitted": 5
+            },
+            {
+              "input": "go/",
+              "inputType": "url",
+              "isTypedHost": true,
+              "allProvidersDone": true,
+              "enterWould": "navigate",
+              "default": "url-what-you-typed [HistoryURL 1413] -> http://go/",
+              "others": [
+                "search-what-you-typed [Search 850 keyword=google.com] -> https://www.google.com/search?q=go%2F&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+                "search-other-engine [Keyword 700 keyword=google.com] -> ",
+                "history-url [HistoryURL 1390] -> http://go/hit/x"
+              ],
+              "serverSuggestionsOmitted": 3
+            }
+          ]
+        },
+        "typedCreditRemoved": {
+          "how": "SYNTHETIC: same profile, browser closed, typed credit removed from the history file (typed_count = 0 on 2 http://go/ URLs, 2 visits set to LINK), relaunched.",
+          "queries": [
+            {
+              "input": "go/h",
+              "inputType": "unknown",
+              "isTypedHost": false,
+              "allProvidersDone": true,
+              "enterWould": "search",
+              "default": "search-what-you-typed [Search 1300 keyword=google.com] -> https://www.google.com/search?q=go%2Fh&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+              "others": [
+                "url-what-you-typed [HistoryURL 1203] -> http://go/h",
+                "history-url [HistoryQuick 751] -> http://go/hit/x"
+              ],
+              "serverSuggestionsOmitted": 5
+            }
+          ]
+        },
+        "navigation": {
+          "asked": "http://go/hit/x",
+          "how": "CDP Page.navigate, transitionType \"typed\"",
+          "errorText": null,
+          "finalUrl": "http://localhost:4655/-/spike/dest"
+        },
+        "history": {
+          "urls": [
+            {
+              "id": 1,
+              "url": "http://go/",
+              "visit_count": 1,
+              "typed_count": 1,
+              "hidden": 0
+            },
+            {
+              "id": 2,
+              "url": "http://localhost:4655/",
+              "visit_count": 1,
+              "typed_count": 0,
+              "hidden": 0
+            },
+            {
+              "id": 3,
+              "url": "http://go/hit/x",
+              "visit_count": 1,
+              "typed_count": 1,
+              "hidden": 0
+            },
+            {
+              "id": 4,
+              "url": "http://localhost:4655/hit/x",
+              "visit_count": 1,
+              "typed_count": 0,
+              "hidden": 0
+            },
+            {
+              "id": 5,
+              "url": "http://localhost:4655/-/spike/dest",
+              "visit_count": 1,
+              "typed_count": 0,
+              "hidden": 0
+            }
+          ],
+          "visits": [
+            {
+              "id": 1,
+              "url": "http://go/",
+              "fromVisit": 0,
+              "transition": "TYPED|FROM_API|CHAIN_START"
+            },
+            {
+              "id": 2,
+              "url": "http://localhost:4655/",
+              "fromVisit": 1,
+              "transition": "TYPED|FROM_API|CHAIN_END|SERVER_REDIRECT"
+            },
+            {
+              "id": 3,
+              "url": "http://go/hit/x",
+              "fromVisit": 0,
+              "transition": "TYPED|FROM_API|CHAIN_START"
+            },
+            {
+              "id": 4,
+              "url": "http://localhost:4655/hit/x",
+              "fromVisit": 3,
+              "transition": "TYPED|FROM_API|SERVER_REDIRECT"
+            },
+            {
+              "id": 5,
+              "url": "http://localhost:4655/-/spike/dest",
+              "fromVisit": 4,
+              "transition": "TYPED|FROM_API|CHAIN_END|SERVER_REDIRECT"
+            }
+          ]
+        },
+        "rawFile": "<repo>/spike/results/omnibox-raw.json"
+      }
+    },
+    {
+      "id": 11,
+      "title": "A go link clicked on a public page reaches the loopback stub with no Local Network Access prompt or block",
+      "mode": "proxy",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:23:08.695Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "PROXY ONLY: headless Chromium 156.0.8078.4, which cannot show a permission prompt, runs with field trials off (--disable-field-trial-config), and is not the Chrome stable build; Local Network Access rules differ between versions and are partly switched on by field trials. A person must confirm this in Chrome stable. Click on https://example.com/ to http://go/hit/c11-click: arrived at http://localhost:4655/-/spike/dest with no interaction; failed requests: 0; console messages: []. A navigation that needed the permission could not have been granted it here, so it would not have arrived. Comparison, same public page: fetch() of a loopback URL rejected: Failed to fetch (stub saw it: false; permission state \"prompt\"; console: \"error: Access to fetch at 'http://localhost:4655/c11-lna-fetch-probe' from origin 'https://example.com' has been blocked by CORS policy: Permission was denied for this request to access the `loopback` address space.\"), so Local Network Access is enforced for sub-resources in this build. With Chromium's field-trial testing configuration on (--enable-field-trial-config): the click arrived the same way, and fetch() rejected: Failed to fetch. A plain link to http://localhost:4655 without the extension ended on http://localhost:4655/-/spike/dest.",
+      "evidence": {
+        "chromiumVersion": "156.0.8078.4",
+        "fieldTrialSwitches": [
+          "--disable-field-trial-config"
+        ],
+        "click": {
+          "clickedFrom": "https://example.com/",
+          "href": "http://go/hit/c11-click",
+          "leftThePublicPage": true,
+          "finalUrl": "http://localhost:4655/-/spike/dest",
+          "consoleMessages": [],
+          "failedRequests": [],
+          "directoryLog": [
+            {
+              "seq": 48,
+              "time": "2026-10-13T16:23:06.536+02:00",
+              "method": "GET",
+              "host": "localhost:4655",
+              "requestURI": "/hit/c11-click",
+              "escapedPath": "/hit/c11-click",
+              "rawQuery": "",
+              "secFetchSite": "cross-site",
+              "secFetchMode": "navigate",
+              "secFetchDest": "document",
+              "secFetchUser": "?1",
+              "secPurpose": "",
+              "referer": "",
+              "origin": "",
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+            }
+          ],
+          "reachedDirectory": true
+        },
+        "subResourceProbe": {
+          "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+          "permissionState": "prompt",
+          "fetch": "rejected: Failed to fetch",
+          "consoleMessages": [
+            "error: Access to fetch at 'http://localhost:4655/c11-lna-fetch-probe' from origin 'https://example.com' has been blocked by CORS policy: Permission was denied for this request to access the `loopback` address space.",
+            "error: Failed to load resource: net::ERR_FAILED"
+          ],
+          "stubSawIt": false
+        },
+        "withFieldTrialTestingConfig": {
+          "version": "156.0.8078.4",
+          "fieldTrialSwitches": [
+            "--enable-field-trial-config"
+          ],
+          "click": {
+            "clickedFrom": "https://example.com/",
+            "href": "http://go/hit/c11-trials",
+            "leftThePublicPage": true,
+            "finalUrl": "http://localhost:4655/-/spike/dest",
+            "consoleMessages": [],
+            "failedRequests": [],
+            "directoryLog": [
+              {
+                "seq": 49,
+                "time": "2026-10-13T16:23:07.593+02:00",
+                "method": "GET",
+                "host": "localhost:4655",
+                "requestURI": "/hit/c11-trials",
+                "escapedPath": "/hit/c11-trials",
+                "rawQuery": "",
+                "secFetchSite": "cross-site",
+                "secFetchMode": "navigate",
+                "secFetchDest": "document",
+                "secFetchUser": "?1",
+                "secPurpose": "",
+                "referer": "",
+                "origin": "",
+                "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+              }
+            ],
+            "reachedDirectory": true
+          },
+          "subResourceProbe": {
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+            "permissionState": "prompt",
+            "fetch": "rejected: Failed to fetch",
+            "consoleMessages": [
+              "error: Access to fetch at 'http://localhost:4655/c11-lna-fetch-probe' from origin 'https://example.com' has been blocked by CORS policy: Permission was denied for this request to access the `loopback` address space.",
+              "error: Failed to load resource: net::ERR_FAILED"
+            ],
+            "stubSawIt": false
+          }
+        },
+        "directLinkWithoutExtension": {
+          "clickedFrom": "https://example.com/",
+          "href": "http://localhost:4655/hit/c11-direct",
+          "leftThePublicPage": true,
+          "finalUrl": "http://localhost:4655/-/spike/dest",
+          "consoleMessages": [],
+          "failedRequests": [],
+          "directoryLog": [
+            {
+              "seq": 50,
+              "time": "2026-10-13T16:23:08.576+02:00",
+              "method": "GET",
+              "host": "localhost:4655",
+              "requestURI": "/hit/c11-direct",
+              "escapedPath": "/hit/c11-direct",
+              "rawQuery": "",
+              "secFetchSite": "cross-site",
+              "secFetchMode": "navigate",
+              "secFetchDest": "document",
+              "secFetchUser": "?1",
+              "secPurpose": "",
+              "referer": "",
+              "origin": "",
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+            }
+          ],
+          "reachedDirectory": true
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "With webRequest and host access to the Directory, onErrorOccurred fires when the stub is stopped, and the tab is replaced by an extension page",
+      "mode": "automated",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:23:17.798Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "Spike extension (host access [\"*://go/*\",\"http://localhost:4655/*\"], no \"tabs\" permission), go link while the stub was stopped: onErrorOccurred recorded \"net::ERR_CONNECTION_REFUSED\" for http://localhost:4655/hit/c12-down; chrome.tabs.update replaced the tab with chrome-extension://<spike-extension-id>/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2Fhit%2Fc12-down&error=net%3A%3AERR_CONNECTION_REFUSED, which shows \"The Directory did not answer\", http://localhost:4655/hit/c12-down, net::ERR_CONNECTION_REFUSED. At the moment of the error chrome.tabs.get gave url null and pendingUrl null for the tab: it still held the page before (http://thirdparty.example/page, which the extension may not read) and no pending address, so \"does the tab show the failed URL\" cannot be decided inside the event handler. Retry while still down: 1 more error(s) in 3 s and the tab was on the unreachable page again. Back button, from a tab whose history was http://thirdparty.example/page then the go link: the tab ended on the unreachable page again (1 more error(s); goBack reported \"page.goBack: net::ERR_CONNECTION_REFUSED\"). Typing the Directory's own address (http://localhost:4655/hit/c12-direct): tab replaced. Copy of the extension with host access to [\"http://localhost:4655/*\"] only, same direct address: recorded \"net::ERR_CONNECTION_REFUSED\" and the tab was replaced. After the stub was restarted, the page's Retry link ended on http://localhost:4655/-/spike/dest.",
+      "evidence": {
+        "permissions": [
+          "declarativeNetRequestWithHostAccess",
+          "storage",
+          "webRequest"
+        ],
+        "hostPermissions": [
+          "*://go/*",
+          "http://localhost:4655/*"
+        ],
+        "extensionId": "<spike-extension-id>",
+        "navigation": {
+          "asked": "http://go/hit/c12-down",
+          "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://go/hit/c12-down",
+          "httpStatus": null,
+          "finalUrl": "chrome-extension://<spike-extension-id>/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2Fhit%2Fc12-down&error=net%3A%3AERR_CONNECTION_REFUSED",
+          "requests": [
+            "http://go/hit/c12-down",
+            "http://localhost:4655/hit/c12-down",
+            "chrome-extension://<spike-extension-id>/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2Fhit%2Fc12-down&error=net%3A%3AERR_CONNECTION_REFUSED"
+          ]
+        },
+        "replaced": true,
+        "tabUrl": "chrome-extension://<spike-extension-id>/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2Fhit%2Fc12-down&error=net%3A%3AERR_CONNECTION_REFUSED",
+        "shown": {
+          "title": "The Directory did not answer",
+          "originalUrl": "http://localhost:4655/hit/c12-down",
+          "error": "net::ERR_CONNECTION_REFUSED"
+        },
+        "retryWhileDown": {
+          "tabUrl": "chrome-extension://<spike-extension-id>/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2Fhit%2Fc12-down&error=net%3A%3AERR_CONNECTION_REFUSED",
+          "backOnUnreachablePage": true,
+          "errorsAdded": 1
+        },
+        "back": {
+          "goBackError": "page.goBack: net::ERR_CONNECTION_REFUSED",
+          "tabUrl": "chrome-extension://<spike-extension-id>/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2Fhit%2Fc12-back&error=net%3A%3AERR_CONNECTION_REFUSED",
+          "endedOn": "the unreachable page again",
+          "errorsAdded": 1
+        },
+        "direct": {
+          "navigation": {
+            "asked": "http://localhost:4655/hit/c12-direct",
+            "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:4655/hit/c12-direct",
+            "httpStatus": null,
+            "finalUrl": "chrome-extension://<spike-extension-id>/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2Fhit%2Fc12-direct&error=net%3A%3AERR_CONNECTION_REFUSED",
+            "requests": [
+              "http://localhost:4655/hit/c12-direct",
+              "chrome-extension://<spike-extension-id>/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2Fhit%2Fc12-direct&error=net%3A%3AERR_CONNECTION_REFUSED"
+            ]
+          },
+          "replaced": true,
+          "tabUrl": "chrome-extension://<spike-extension-id>/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2Fhit%2Fc12-direct&error=net%3A%3AERR_CONNECTION_REFUSED"
+        },
+        "originOnly": {
+          "permissions": {
+            "origins": [
+              "http://localhost:4655/*"
+            ],
+            "permissions": [
+              "storage",
+              "webRequest",
+              "declarativeNetRequestWithHostAccess"
+            ]
+          },
+          "navigation": {
+            "asked": "http://localhost:4655/hit/c12-origin-only",
+            "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:4655/hit/c12-origin-only",
+            "httpStatus": null,
+            "finalUrl": "chrome-extension://lbfakolllaphpmhcnbehaobipdifacff/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2Fhit%2Fc12-origin-only&error=net%3A%3AERR_CONNECTION_REFUSED",
+            "requests": [
+              "http://localhost:4655/hit/c12-origin-only",
+              "chrome-extension://lbfakolllaphpmhcnbehaobipdifacff/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2Fhit%2Fc12-origin-only&error=net%3A%3AERR_CONNECTION_REFUSED"
+            ]
+          },
+          "replaced": true,
+          "tabUrl": "chrome-extension://lbfakolllaphpmhcnbehaobipdifacff/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2Fhit%2Fc12-origin-only&error=net%3A%3AERR_CONNECTION_REFUSED",
+          "directoryErrors": [
+            {
+              "error": "net::ERR_CONNECTION_REFUSED",
+              "replaced": true,
+              "tabId": 973180165,
+              "tabPendingUrlAtError": null,
+              "tabUrlAtError": null,
+              "time": "2026-10-13T14:23:17.158Z",
+              "url": "http://localhost:4655/hit/c12-origin-only"
+            }
+          ]
+        },
+        "retry": {
+          "finalUrl": "http://localhost:4655/-/spike/dest",
+          "directoryLog": [
+            "/hit/c12-down"
+          ]
+        },
+        "directoryErrors": [
+          {
+            "error": "net::ERR_CONNECTION_REFUSED",
+            "replaced": true,
+            "tabId": 991131318,
+            "tabPendingUrlAtError": null,
+            "tabUrlAtError": null,
+            "time": "2026-10-13T14:23:09.351Z",
+            "url": "http://localhost:4655/hit/c12-down"
+          },
+          {
+            "error": "net::ERR_CONNECTION_REFUSED",
+            "replaced": true,
+            "tabId": 991131318,
+            "tabPendingUrlAtError": null,
+            "tabUrlAtError": "chrome-extension://<spike-extension-id>/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2Fhit%2Fc12-down&error=net%3A%3AERR_CONNECTION_REFUSED",
+            "time": "2026-10-13T14:23:09.598Z",
+            "url": "http://localhost:4655/hit/c12-down"
+          },
+          {
+            "error": "net::ERR_CONNECTION_REFUSED",
+            "replaced": true,
+            "tabId": 991131323,
+            "tabPendingUrlAtError": null,
+            "tabUrlAtError": null,
+            "time": "2026-10-13T14:23:12.931Z",
+            "url": "http://localhost:4655/hit/c12-back"
+          },
+          {
+            "error": "net::ERR_CONNECTION_REFUSED",
+            "replaced": true,
+            "tabId": 991131323,
+            "tabPendingUrlAtError": null,
+            "tabUrlAtError": "chrome-extension://<spike-extension-id>/unreachable.html?url=http%3A%2F%2Flocalhost%3A4655%2Fhit%2Fc12-back&error=net%3A%3AERR_CONNECTION_REFUSED",
+            "time": "2026-10-13T14:23:13.136Z",
+            "url": "http://localhost:4655/hit/c12-back"
+          },
+          {
+            "error": "net::ERR_CONNECTION_REFUSED",
+            "replaced": true,
+            "tabId": 991131329,
+            "tabPendingUrlAtError": null,
+            "tabUrlAtError": null,
+            "time": "2026-10-13T14:23:16.284Z",
+            "url": "http://localhost:4655/hit/c12-direct"
+          }
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "title": "webRequest.onBeforeRequest on *://go/* sees go navigations",
+      "mode": "proxy",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:23:19.230Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "After page.goto of http://go/hit/seen and https://go/hit/seen-https and a link click to http://go/hit/seen-click on http://thirdparty.example/page (a page the extension has no host access to), storage key goSeen held [\"http://go/hit/seen\",\"https://go/hit/seen-https\",\"http://go/hit/seen-click\"]. Typed navigations cannot be automated: this shows the listener sees programmatic and clicked go navigations before the redirect, not that it sees typed ones.",
+      "evidence": {
+        "navigations": [
+          {
+            "asked": "http://go/hit/seen",
+            "error": null,
+            "httpStatus": 200,
+            "finalUrl": "http://localhost:4655/-/spike/dest",
+            "requests": [
+              "http://go/hit/seen",
+              "http://localhost:4655/hit/seen",
+              "http://localhost:4655/-/spike/dest"
+            ]
+          },
+          {
+            "asked": "https://go/hit/seen-https",
+            "error": null,
+            "httpStatus": 200,
+            "finalUrl": "http://localhost:4655/-/spike/dest",
+            "requests": [
+              "https://go/hit/seen-https",
+              "http://localhost:4655/hit/seen-https",
+              "http://localhost:4655/-/spike/dest"
+            ]
+          }
+        ],
+        "clickedFrom": "http://thirdparty.example/page",
+        "tabAfterClick": "http://localhost:4655/-/spike/dest",
+        "goSeen": [
+          {
+            "tabId": 737102096,
+            "time": "2026-10-13T14:23:18.532Z",
+            "url": "http://go/hit/seen"
+          },
+          {
+            "tabId": 737102096,
+            "time": "2026-10-13T14:23:18.555Z",
+            "url": "https://go/hit/seen-https"
+          },
+          {
+            "tabId": 737102096,
+            "time": "2026-10-13T14:23:18.801Z",
+            "url": "http://go/hit/seen-click"
+          }
+        ]
+      }
+    },
+    {
+      "id": 14,
+      "title": "The redirect works with the service worker stopped, and after a browser restart",
+      "mode": "automated",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:23:36.775Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "Spike extension: worker stopped through the DevTools protocol (status \"stopped\", no worker target), then http://go/ redirected; the navigation woke the worker again (its webRequest listener). After closing and relaunching on the same profile, the first navigation (856 ms after launch) redirected; worker targets at that moment: 1. Its own log over both sessions: [\"onInstalled:install: rulePresent false, installedNow true\",\"onInstalled:install: rulePresent true, installedNow false\"], so the rule was installed once and found present at the second launch. Rule-only extension (installs the rule once, no webRequest listeners): with the worker stopped http://go/ redirected and the worker stayed stopped; after the relaunch the first navigation redirected, and its lifecycle log [\"workerStarted\",\"onInstalled:install\",\"ruleInstalled\",\"workerStarted\",\"onInstalled:install\"] shows 1 rule install(s) over both sessions. Control without the extension: page.goto: net::ERR_NAME_NOT_RESOLVED at http://go/hit/c14-control. Go link as the browser's first navigation (Chromium started headless with http://go/... on its command line, on a profile from an earlier session): redirected, the stub logged [\"/hit/c14-startup-extension\"]; the same start without the extension: stub log [] after 5119 ms. Limits: every launch here loads the extension with --load-extension, which fires onInstalled (reason \"install\") on each launch and never onStartup, so start-up timing differs from an extension installed the normal way; and a tab restored from the previous session was not tried. The manual run covers the normally installed case (steps L1 to L3).",
+      "evidence": {
+        "spikeExtension": {
+          "extensionId": "<spike-extension-id>",
+          "workerStopped": {
+            "stop": {
+              "statuses": [
+                "running",
+                "stopping",
+                "stopped",
+                "starting",
+                "starting",
+                "starting",
+                "running"
+              ],
+              "statusBeforeStop": "running",
+              "statusAfterStop": "stopped",
+              "targetsAfterStop": [],
+              "stopped": true
+            },
+            "navigation": {
+              "asked": "http://go/hit/c14-spike-stopped",
+              "error": null,
+              "httpStatus": 200,
+              "finalUrl": "http://localhost:4655/-/spike/dest",
+              "requests": [
+                "http://go/hit/c14-spike-stopped",
+                "http://localhost:4655/hit/c14-spike-stopped",
+                "http://localhost:4655/-/spike/dest"
+              ],
+              "directoryLog": [
+                {
+                  "seq": 5,
+                  "time": "2026-10-13T16:23:20.348+02:00",
+                  "method": "GET",
+                  "host": "localhost:4655",
+                  "requestURI": "/hit/c14-spike-stopped",
+                  "escapedPath": "/hit/c14-spike-stopped",
+                  "rawQuery": "",
+                  "secFetchSite": "none",
+                  "secFetchMode": "navigate",
+                  "secFetchDest": "document",
+                  "secFetchUser": "?1",
+                  "secPurpose": "",
+                  "referer": "",
+                  "origin": "",
+                  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+                }
+              ],
+              "reachedDirectory": true
+            },
+            "workerTargetsAfterNavigation": [
+              "chrome-extension://<spike-extension-id>/background.js"
+            ],
+            "workerStatusesAfterNavigation": [
+              "starting",
+              "starting",
+              "starting",
+              "running"
+            ]
+          },
+          "afterRestart": {
+            "millisecondsFromLaunchToNavigation": 856,
+            "workerTargetsAtNavigation": [
+              "chrome-extension://<spike-extension-id>/background.js"
+            ],
+            "navigation": {
+              "asked": "http://go/hit/c14-spike-restart",
+              "error": null,
+              "httpStatus": 200,
+              "finalUrl": "http://localhost:4655/-/spike/dest",
+              "requests": [
+                "http://go/hit/c14-spike-restart",
+                "http://localhost:4655/hit/c14-spike-restart",
+                "http://localhost:4655/-/spike/dest"
+              ],
+              "directoryLog": [
+                {
+                  "seq": 6,
+                  "time": "2026-10-13T16:23:21.955+02:00",
+                  "method": "GET",
+                  "host": "localhost:4655",
+                  "requestURI": "/hit/c14-spike-restart",
+                  "escapedPath": "/hit/c14-spike-restart",
+                  "rawQuery": "",
+                  "secFetchSite": "none",
+                  "secFetchMode": "navigate",
+                  "secFetchDest": "document",
+                  "secFetchUser": "?1",
+                  "secPurpose": "",
+                  "referer": "",
+                  "origin": "",
+                  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+                }
+              ],
+              "reachedDirectory": true
+            },
+            "state": {
+              "rules": [
+                {
+                  "action": {
+                    "redirect": {
+                      "regexSubstitution": "http://localhost:4655/\\1"
+                    },
+                    "type": "redirect"
+                  },
+                  "condition": {
+                    "regexFilter": "^https?://go/(.*)$",
+                    "resourceTypes": [
+                      "main_frame"
+                    ]
+                  },
+                  "id": 1,
+                  "priority": 1
+                }
+              ],
+              "directoryErrors": [],
+              "goSeen": [
+                {
+                  "tabId": 497783981,
+                  "time": "2026-10-13T14:23:20.345Z",
+                  "url": "http://go/hit/c14-spike-stopped"
+                },
+                {
+                  "tabId": 497784037,
+                  "time": "2026-10-13T14:23:21.954Z",
+                  "url": "http://go/hit/c14-spike-restart"
+                }
+              ],
+              "lifecycle": [
+                {
+                  "event": "onInstalled:install",
+                  "installedNow": true,
+                  "rulePresent": false,
+                  "time": "2026-10-13T14:23:20.015Z"
+                },
+                {
+                  "event": "onInstalled:install",
+                  "installedNow": false,
+                  "rulePresent": true,
+                  "time": "2026-10-13T14:23:21.776Z"
+                }
+              ]
+            }
+          },
+          "stoppedOk": true,
+          "restartOk": true
+        },
+        "ruleOnlyExtension": {
+          "extensionId": "ffhjieilnpjakmgjapaccieckbodaogc",
+          "workerStopped": {
+            "stop": {
+              "statuses": [
+                "running",
+                "stopping",
+                "stopped"
+              ],
+              "statusBeforeStop": "running",
+              "statusAfterStop": "stopped",
+              "targetsAfterStop": [],
+              "stopped": true
+            },
+            "navigation": {
+              "asked": "http://go/hit/c14-rule-only-stopped",
+              "error": null,
+              "httpStatus": 200,
+              "finalUrl": "http://localhost:4655/-/spike/dest",
+              "requests": [
+                "http://go/hit/c14-rule-only-stopped",
+                "http://localhost:4655/hit/c14-rule-only-stopped",
+                "http://localhost:4655/-/spike/dest"
+              ],
+              "directoryLog": [
+                {
+                  "seq": 7,
+                  "time": "2026-10-13T16:23:23.102+02:00",
+                  "method": "GET",
+                  "host": "localhost:4655",
+                  "requestURI": "/hit/c14-rule-only-stopped",
+                  "escapedPath": "/hit/c14-rule-only-stopped",
+                  "rawQuery": "",
+                  "secFetchSite": "none",
+                  "secFetchMode": "navigate",
+                  "secFetchDest": "document",
+                  "secFetchUser": "?1",
+                  "secPurpose": "",
+                  "referer": "",
+                  "origin": "",
+                  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+                }
+              ],
+              "reachedDirectory": true
+            },
+            "workerTargetsAfterNavigation": [],
+            "workerStatusesAfterNavigation": []
+          },
+          "afterRestart": {
+            "millisecondsFromLaunchToNavigation": 566,
+            "workerTargetsAtNavigation": [
+              "chrome-extension://ffhjieilnpjakmgjapaccieckbodaogc/background.js"
+            ],
+            "navigation": {
+              "asked": "http://go/hit/c14-rule-only-restart",
+              "error": null,
+              "httpStatus": 200,
+              "finalUrl": "http://localhost:4655/-/spike/dest",
+              "requests": [
+                "http://go/hit/c14-rule-only-restart",
+                "http://localhost:4655/hit/c14-rule-only-restart",
+                "http://localhost:4655/-/spike/dest"
+              ],
+              "directoryLog": [
+                {
+                  "seq": 8,
+                  "time": "2026-10-13T16:23:24.309+02:00",
+                  "method": "GET",
+                  "host": "localhost:4655",
+                  "requestURI": "/hit/c14-rule-only-restart",
+                  "escapedPath": "/hit/c14-rule-only-restart",
+                  "rawQuery": "",
+                  "secFetchSite": "none",
+                  "secFetchMode": "navigate",
+                  "secFetchDest": "document",
+                  "secFetchUser": "?1",
+                  "secPurpose": "",
+                  "referer": "",
+                  "origin": "",
+                  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+                }
+              ],
+              "reachedDirectory": true
+            },
+            "state": {
+              "rules": [
+                {
+                  "action": {
+                    "redirect": {
+                      "regexSubstitution": "http://localhost:4655/\\1"
+                    },
+                    "type": "redirect"
+                  },
+                  "condition": {
+                    "regexFilter": "^https?://go/(.*)$",
+                    "resourceTypes": [
+                      "main_frame"
+                    ]
+                  },
+                  "id": 1,
+                  "priority": 1
+                }
+              ],
+              "lifecycle": [
+                "workerStarted",
+                "onInstalled:install",
+                "ruleInstalled",
+                "workerStarted",
+                "onInstalled:install"
+              ]
+            }
+          },
+          "stoppedOk": true,
+          "restartOk": true
+        },
+        "control": {
+          "asked": "http://go/hit/c14-control",
+          "error": "page.goto: net::ERR_NAME_NOT_RESOLVED at http://go/hit/c14-control",
+          "httpStatus": null,
+          "finalUrl": "chrome-error://chromewebdata/",
+          "requests": [
+            "http://go/hit/c14-control"
+          ],
+          "directoryLog": [],
+          "reachedDirectory": false
+        },
+        "startUpNavigation": {
+          "commandLineArguments": [
+            "--user-data-dir=<tmp>/godir-spike-profile-XXXXXX",
+            "--headless",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--use-mock-keychain",
+            "--password-store=basic",
+            "--disable-search-engine-choice-screen",
+            "--disable-background-networking",
+            "--disable-component-update",
+            "--disable-sync",
+            "--disable-breakpad",
+            "--disable-extensions-except=<repo>/spike/extension",
+            "--load-extension=<repo>/spike/extension",
+            "http://go/hit/c14-startup-extension"
+          ],
+          "millisecondsWatched": 1792,
+          "directoryLog": [
+            {
+              "requestURI": "/hit/c14-startup-extension",
+              "secFetchSite": "none",
+              "secFetchUser": "?1"
+            }
+          ],
+          "reachedDirectory": true,
+          "storedByExtension": {
+            "goSeen": [
+              {
+                "tabId": 1336297960,
+                "time": "2026-10-13T14:23:28.428Z",
+                "url": "http://go/hit/c14-startup-extension"
+              }
+            ],
+            "lifecycle": [
+              {
+                "event": "onInstalled:install",
+                "installedNow": true,
+                "rulePresent": false,
+                "time": "2026-10-13T14:23:26.223Z"
+              },
+              {
+                "event": "onInstalled:install",
+                "installedNow": false,
+                "rulePresent": true,
+                "time": "2026-10-13T14:23:27.490Z"
+              },
+              {
+                "event": "onInstalled:install",
+                "installedNow": false,
+                "rulePresent": true,
+                "time": "2026-10-13T14:23:29.502Z"
+              }
+            ]
+          }
+        },
+        "startUpNavigationControl": {
+          "commandLineArguments": [
+            "--user-data-dir=<tmp>/godir-spike-profile-XXXXXX",
+            "--headless",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--use-mock-keychain",
+            "--password-store=basic",
+            "--disable-search-engine-choice-screen",
+            "--disable-background-networking",
+            "--disable-component-update",
+            "--disable-sync",
+            "--disable-breakpad",
+            "http://go/hit/c14-startup-control"
+          ],
+          "millisecondsWatched": 5119,
+          "directoryLog": [],
+          "reachedDirectory": false
+        }
+      }
+    },
+    {
+      "id": 15,
+      "title": "Registering the address-bar keyword go/ leaves a plain go/foo plus Enter unchanged",
+      "mode": "proxy",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:24:15.208Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "Default match with spike/extension against spike/extension-omnibox (keyword \"go/\"), fresh and after a typed visit to http://go/, for \"go/foo\", \"go/\", \"go/foo/\", \"http://go/foo\", \"go\": identical in every case. With a space after the keyword the default does change: \"go/ foo\" (fresh): search-what-you-typed [Search 851 keyword=google.com] -> https://www.google.com/search?q=go%2F+foo&sourceid=chrome&source=chrome.ob&ie=UTF-8 becomes search-other-engine [Keyword 1100 keyword=go/] -> chrome-extension://<spike-extension-omnibox-id>/?q=foo. Keyword hint attached to the default match for: \"go/\" (fresh), \"go/\" (after one typed visit to http://go/), \"go\" (after one typed visit to http://go/), \"go/ foo\" (after one typed visit to http://go/). Matches the keyword adds, by input, position and relevance: fresh: \"go/\" at #1 (1100), \"go/ foo\" at #0 (1100), \"go foo\" at #9 (450); after one typed visit to http://go/: \"go/\" at #1 (1100), \"go/ foo\" at #1 (1100), \"go foo\" at #9 (450). In keyword mode (after Tab or Space accepts the hint) \"go/ foo\" gives: fresh: search-other-engine [Keyword 1500 keyword=go/] -> chrome-extension://<spike-extension-omnibox-id>/?q=foo; after one typed visit to http://go/: search-other-engine [Keyword 1500 keyword=go/] -> chrome-extension://<spike-extension-omnibox-id>/?q=foo. PROXY ONLY: this is Chromium's autocomplete code answering through chrome://omnibox in Playwright's headless Chromium, not a person typing in Chrome stable. The manual run must still confirm it.",
+      "evidence": {
+        "comparison": [
+          {
+            "state": "fresh",
+            "input": "go/foo",
+            "plainDefault": "search-what-you-typed [Search 1300 keyword=google.com] -> https://www.google.com/search?q=go%2Ffoo&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+            "keywordDefault": "search-what-you-typed [Search 1300 keyword=google.com] -> https://www.google.com/search?q=go%2Ffoo&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+            "sameDefault": true,
+            "keywordHintOnDefault": null,
+            "keywordMatchesAdded": []
+          },
+          {
+            "state": "fresh",
+            "input": "go/",
+            "plainDefault": "url-what-you-typed [HistoryURL 1203] -> http://go/",
+            "keywordDefault": "url-what-you-typed [HistoryURL 1203] -> http://go/",
+            "sameDefault": true,
+            "keywordHintOnDefault": "go/",
+            "keywordMatchesAdded": [
+              "#1 search-other-engine [Keyword 1100 keyword=go/] -> chrome-extension://<spike-extension-omnibox-id>/?q={searchTerms} (may be default: true)"
+            ]
+          },
+          {
+            "state": "fresh",
+            "input": "go/foo/",
+            "plainDefault": "url-what-you-typed [HistoryURL 1203] -> http://go/foo/",
+            "keywordDefault": "url-what-you-typed [HistoryURL 1203] -> http://go/foo/",
+            "sameDefault": true,
+            "keywordHintOnDefault": null,
+            "keywordMatchesAdded": []
+          },
+          {
+            "state": "fresh",
+            "input": "http://go/foo",
+            "plainDefault": "url-what-you-typed [HistoryURL 1203] -> http://go/foo",
+            "keywordDefault": "url-what-you-typed [HistoryURL 1203] -> http://go/foo",
+            "sameDefault": true,
+            "keywordHintOnDefault": null,
+            "keywordMatchesAdded": []
+          },
+          {
+            "state": "fresh",
+            "input": "go",
+            "plainDefault": "search-what-you-typed [Search 851 keyword=google.com] -> https://www.google.com/search?q=go&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+            "keywordDefault": "search-what-you-typed [Search 851 keyword=google.com] -> https://www.google.com/search?q=go&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+            "sameDefault": true,
+            "keywordHintOnDefault": null,
+            "keywordMatchesAdded": []
+          },
+          {
+            "state": "fresh",
+            "input": "go/ foo",
+            "plainDefault": "search-what-you-typed [Search 851 keyword=google.com] -> https://www.google.com/search?q=go%2F+foo&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+            "keywordDefault": "search-other-engine [Keyword 1100 keyword=go/] -> chrome-extension://<spike-extension-omnibox-id>/?q=foo",
+            "sameDefault": false,
+            "keywordHintOnDefault": null,
+            "keywordMatchesAdded": [
+              "#0 search-other-engine [Keyword 1100 keyword=go/] -> chrome-extension://<spike-extension-omnibox-id>/?q=foo (may be default: true)"
+            ]
+          },
+          {
+            "state": "fresh",
+            "input": "go foo",
+            "plainDefault": "search-what-you-typed [Search 851 keyword=google.com] -> https://www.google.com/search?q=go+foo&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+            "keywordDefault": "search-what-you-typed [Search 851 keyword=google.com] -> https://www.google.com/search?q=go+foo&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+            "sameDefault": true,
+            "keywordHintOnDefault": null,
+            "keywordMatchesAdded": [
+              "#9 search-other-engine [Keyword 450 keyword=go/] -> chrome-extension://<spike-extension-omnibox-id>/?q=foo (may be default: false)"
+            ]
+          },
+          {
+            "state": "after one typed visit to http://go/",
+            "input": "go/foo",
+            "plainDefault": "url-what-you-typed [HistoryURL 1403] -> http://go/foo",
+            "keywordDefault": "url-what-you-typed [HistoryURL 1403] -> http://go/foo",
+            "sameDefault": true,
+            "keywordHintOnDefault": null,
+            "keywordMatchesAdded": []
+          },
+          {
+            "state": "after one typed visit to http://go/",
+            "input": "go/",
+            "plainDefault": "url-what-you-typed [HistoryURL 1413] -> http://go/",
+            "keywordDefault": "url-what-you-typed [HistoryURL 1413] -> http://go/",
+            "sameDefault": true,
+            "keywordHintOnDefault": "go/",
+            "keywordMatchesAdded": [
+              "#1 search-other-engine [Keyword 1100 keyword=go/] -> chrome-extension://<spike-extension-omnibox-id>/?q={searchTerms} (may be default: true)"
+            ]
+          },
+          {
+            "state": "after one typed visit to http://go/",
+            "input": "go/foo/",
+            "plainDefault": "url-what-you-typed [HistoryURL 1203] -> http://go/foo/",
+            "keywordDefault": "url-what-you-typed [HistoryURL 1203] -> http://go/foo/",
+            "sameDefault": true,
+            "keywordHintOnDefault": null,
+            "keywordMatchesAdded": []
+          },
+          {
+            "state": "after one typed visit to http://go/",
+            "input": "http://go/foo",
+            "plainDefault": "url-what-you-typed [HistoryURL 1203] -> http://go/foo",
+            "keywordDefault": "url-what-you-typed [HistoryURL 1203] -> http://go/foo",
+            "sameDefault": true,
+            "keywordHintOnDefault": null,
+            "keywordMatchesAdded": []
+          },
+          {
+            "state": "after one typed visit to http://go/",
+            "input": "go",
+            "plainDefault": "url-what-you-typed [HistoryURL 1413] -> http://go/",
+            "keywordDefault": "url-what-you-typed [HistoryURL 1413] -> http://go/",
+            "sameDefault": true,
+            "keywordHintOnDefault": "go/",
+            "keywordMatchesAdded": []
+          },
+          {
+            "state": "after one typed visit to http://go/",
+            "input": "go/ foo",
+            "plainDefault": "url-what-you-typed [HistoryURL 1403] -> http://go/%20foo",
+            "keywordDefault": "url-what-you-typed [HistoryURL 1403] -> http://go/%20foo",
+            "sameDefault": true,
+            "keywordHintOnDefault": "go/",
+            "keywordMatchesAdded": [
+              "#1 search-other-engine [Keyword 1100 keyword=go/] -> chrome-extension://<spike-extension-omnibox-id>/?q=foo (may be default: true)"
+            ]
+          },
+          {
+            "state": "after one typed visit to http://go/",
+            "input": "go foo",
+            "plainDefault": "search-what-you-typed [Search 851 keyword=google.com] -> https://www.google.com/search?q=go+foo&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+            "keywordDefault": "search-what-you-typed [Search 851 keyword=google.com] -> https://www.google.com/search?q=go+foo&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+            "sameDefault": true,
+            "keywordHintOnDefault": null,
+            "keywordMatchesAdded": [
+              "#9 search-other-engine [Keyword 450 keyword=go/] -> chrome-extension://<spike-extension-omnibox-id>/?q=foo (may be default: false)"
+            ]
+          }
+        ],
+        "inKeywordMode": [
+          {
+            "state": "fresh",
+            "input": "go/ foo",
+            "inKeywordMode": true,
+            "inputType": "unknown",
+            "isTypedHost": false,
+            "allProvidersDone": true,
+            "enterWould": "keyword go/",
+            "default": "search-other-engine [Keyword 1500 keyword=go/] -> chrome-extension://<spike-extension-omnibox-id>/?q=foo",
+            "others": [
+              "url-what-you-typed [HistoryURL 1203] -> http://go/%20foo"
+            ],
+            "serverSuggestionsOmitted": 0
+          },
+          {
+            "state": "after one typed visit to http://go/",
+            "input": "go/ foo",
+            "inKeywordMode": true,
+            "inputType": "unknown",
+            "isTypedHost": true,
+            "allProvidersDone": true,
+            "enterWould": "keyword go/",
+            "default": "search-other-engine [Keyword 1500 keyword=go/] -> chrome-extension://<spike-extension-omnibox-id>/?q=foo",
+            "others": [
+              "url-what-you-typed [HistoryURL 1403] -> http://go/%20foo"
+            ],
+            "serverSuggestionsOmitted": 0
+          }
+        ],
+        "rawFile": "<repo>/spike/results/omnibox-raw.json"
+      }
+    },
+    {
+      "id": "extra-broad-filter",
+      "title": "Recorded only: onErrorOccurred with a broad static filter is delivered only for hosts the extension has access to",
+      "mode": "automated",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:23:39.962Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "An extension with host access to http://localhost:4656/* only, and onErrorOccurred registered at the top level with the filter {urls: [\"http://*/*\", \"https://*/*\"], types: [\"main_frame\"]}. Three navigations failed: http://no-access.example/refused (net::ERR_CONNECTION_REFUSED), http://no-access-unresolved.invalid/ (net::ERR_NAME_NOT_RESOLVED), http://localhost:4656/granted (net::ERR_CONNECTION_REFUSED). Events delivered: [{\"error\":\"net::ERR_CONNECTION_REFUSED\",\"url\":\"http://localhost:4656/granted\"}]. Only the host with access was delivered, so a broad static filter does not widen what the extension sees.",
+      "evidence": {
+        "navigations": [
+          {
+            "asked": "http://no-access.example/refused",
+            "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://no-access.example/refused",
+            "httpStatus": null,
+            "finalUrl": "chrome-error://chromewebdata/",
+            "requests": [
+              "http://no-access.example/refused"
+            ]
+          },
+          {
+            "asked": "http://no-access-unresolved.invalid/",
+            "error": "page.goto: net::ERR_NAME_NOT_RESOLVED at http://no-access-unresolved.invalid/",
+            "httpStatus": null,
+            "finalUrl": "chrome-error://chromewebdata/",
+            "requests": [
+              "http://no-access-unresolved.invalid/"
+            ]
+          },
+          {
+            "asked": "http://localhost:4656/granted",
+            "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:4656/granted",
+            "httpStatus": null,
+            "finalUrl": "chrome-error://chromewebdata/",
+            "requests": [
+              "http://localhost:4656/granted"
+            ]
+          }
+        ],
+        "allErrors": [
+          {
+            "error": "net::ERR_CONNECTION_REFUSED",
+            "url": "http://localhost:4656/granted"
+          }
+        ]
+      }
+    },
+    {
+      "id": "extra-extension-fetch",
+      "title": "Proposed check 17: the extension itself can fetch the loopback Directory (the connection test of L4.2)",
+      "mode": "proxy",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:23:38.035Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "fetch(\"http://localhost:4655/-/api/v1/meta\") from the extension's status page: HTTP 200 {\"product\":\"godir-spike\",\"version\":\"0.0.0\",\"api\":0}; from its service worker: HTTP 200 {\"product\":\"godir-spike\",\"version\":\"0.0.0\",\"api\":0}. Permission state \"local-network-access\" as the extension page sees it: \"prompt\". PROXY ONLY: headless Chromium cannot show a permission prompt, so a fetch that needed one would have failed here; that it worked says no prompt was needed in this build. Chrome stable must confirm it (manual step C3).",
+      "evidence": {
+        "meta": {
+          "page": {
+            "from": "extension page",
+            "url": "http://localhost:4655/-/api/v1/meta",
+            "time": "2026-10-13T14:23:37.763Z",
+            "ok": true,
+            "status": 200,
+            "body": "{\"product\":\"godir-spike\",\"version\":\"0.0.0\",\"api\":0}\n"
+          },
+          "worker": {
+            "body": "{\"product\":\"godir-spike\",\"version\":\"0.0.0\",\"api\":0}\n",
+            "from": "service worker",
+            "ok": true,
+            "status": 200,
+            "time": "2026-10-13T14:23:37.783Z",
+            "url": "http://localhost:4655/-/api/v1/meta"
+          }
+        },
+        "permissionState": "prompt",
+        "consoleMessages": []
+      }
+    },
+    {
+      "id": "extra-subresource",
+      "title": "Recorded only: a sub-frame or fetch to http://go/ is not redirected (the rule lists main_frame only)",
+      "mode": "automated",
+      "status": "pass",
+      "ranAt": "2026-10-13T14:23:40.824Z",
+      "chromiumVersion": "156.0.8078.4",
+      "observed": "From a page on http://localhost:4655, with go mapped to the decoy: an <iframe src=\"http://go/hit/sub-frame\"> (load event) and fetch(\"http://go/hit/sub-fetch\") (resolved (opaque)) produced Directory log [] and decoy log [\"go/hit/sub-fetch\",\"go/hit/sub-frame\"]: neither was redirected.",
+      "evidence": {
+        "inPage": {
+          "frame": "load event",
+          "fetch": "resolved (opaque)"
+        },
+        "frameUrls": [
+          "http://localhost:4655/-/spike/dest",
+          "http://go/hit/sub-frame"
+        ],
+        "directoryLog": [],
+        "decoyLog": [
+          "go/hit/sub-fetch",
+          "go/hit/sub-frame"
+        ]
+      }
+    }
+  ]
+}
