@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf16"
@@ -34,6 +35,15 @@ func (s *Server) internalMux() http.Handler {
 	mux.Handle(internalPrefix+"healthz", byMethod{http.MethodGet: s.handleHealthz})
 	mux.Handle(apiPrefix+"meta", byMethod{http.MethodGet: s.handleMeta})
 	mux.Handle(apiPrefix+"links", byMethod{http.MethodGet: s.handleListLinks, http.MethodPost: s.handleCreateLink})
+	// The more specific pattern wins over "{id}", so "validate" is never
+	// read as a link ID.
+	mux.Handle(apiPrefix+"links/validate", byMethod{http.MethodPost: s.handleValidate})
+	mux.Handle(apiPrefix+"links/{id}", byMethod{
+		http.MethodGet:    s.handleGetLink,
+		http.MethodPatch:  s.handleUpdateLink,
+		http.MethodDelete: s.handleDeleteLink,
+	})
+	mux.Handle(apiPrefix+"resolve", byMethod{http.MethodGet: s.handleResolve})
 	// Unknown API paths answer in the API's error shape, not with a UI page.
 	mux.HandleFunc(internalPrefix+"api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, codeNotFound, "There is no such API endpoint.", nil)
@@ -62,7 +72,7 @@ func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListLinks(w http.ResponseWriter, r *http.Request) {
 	links, err := s.svc.ListLinks(r.Context(), s.opts.Actor)
 	if err != nil {
-		s.serviceError(w, r, "list links", err)
+		s.serviceError(w, r, "list links", app.Draft{}, err)
 		return
 	}
 	out := struct {
@@ -81,9 +91,51 @@ type linkRequest struct {
 	Routes      []routeRequest `json:"routes"`
 }
 
+// routeRequest is one route of a request body. The array order is the route
+// order.
 type routeRequest struct {
+	// ID names the saved route this entry replaces, so that an edit keeps
+	// the route's identity. Absent, null or 0 means a new route.
+	ID          int64  `json:"id"`
 	Pattern     string `json:"pattern"`
 	Destination string `json:"destination"`
+	// Variables optionally describes the pattern's variables, by name.
+	Variables map[string]variableRequest `json:"variables"`
+}
+
+type variableRequest struct {
+	Description string `json:"description"`
+	Example     string `json:"example"`
+}
+
+// draftRoute converts a route of a request without judging it: whether an ID
+// belongs to the link, or a described variable exists, is for the Service to
+// say.
+func (rt routeRequest) draftRoute() app.DraftRoute {
+	out := app.DraftRoute{ID: rt.ID, Pattern: rt.Pattern, Destination: rt.Destination}
+	if len(rt.Variables) > 0 {
+		// A JSON object has no order; sorting makes the same request yield
+		// the same draft, and with it the same problems in the same order.
+		names := make([]string, 0, len(rt.Variables))
+		for name := range rt.Variables {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		out.Variables = make([]linkmodel.VariableMeta, 0, len(names))
+		for _, name := range names {
+			v := rt.Variables[name]
+			out.Variables = append(out.Variables, linkmodel.VariableMeta{Name: name, Description: v.Description, Example: v.Example})
+		}
+	}
+	return out
+}
+
+func newDraft(description string, routes []routeRequest) app.Draft {
+	draft := app.Draft{Description: description, Routes: make([]app.DraftRoute, 0, len(routes))}
+	for _, rt := range routes {
+		draft.Routes = append(draft.Routes, rt.draftRoute())
+	}
+	return draft
 }
 
 func (s *Server) handleCreateLink(w http.ResponseWriter, r *http.Request) {
@@ -92,19 +144,11 @@ func (s *Server) handleCreateLink(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, rejected.status, rejected.code, rejected.message, nil)
 		return
 	}
-	draft := app.Draft{Description: req.Description, Routes: make([]app.DraftRoute, 0, len(req.Routes))}
-	for _, rt := range req.Routes {
-		draft.Routes = append(draft.Routes, app.DraftRoute{Pattern: rt.Pattern, Destination: rt.Destination})
-	}
+	draft := newDraft(req.Description, req.Routes)
 
 	link, err := s.svc.CreateLink(r.Context(), s.opts.Actor, draft)
-	var invalid *app.ValidationError
-	switch {
-	case errors.As(err, &invalid):
-		writeInvalid(w, r, draft, invalid)
-		return
-	case err != nil:
-		s.serviceError(w, r, "create link", err)
+	if err != nil {
+		s.serviceError(w, r, "create link", draft, err)
 		return
 	}
 	writeJSON(w, r, http.StatusCreated, s.linkJSON(r, link))
@@ -165,7 +209,8 @@ type routeProblemsJSON struct {
 	Problems []problemJSON `json:"problems"`
 }
 
-// writeInvalid answers 422 for a draft that failed validation.
+// writeInvalid answers 422 for a draft that failed validation. It lists
+// warnings beside the errors, as the Service reported them.
 //
 // The problems are grouped the way the validate endpoint groups them (plan
 // section 3.5): details.routes has one entry per route of the request, in the
@@ -223,16 +268,70 @@ func utf16Offset(text string, byteOffset int) int {
 // serviceError turns an error of the use cases into a response. Only errors
 // the caller can act on are described; anything else is logged and answered
 // with a bare 500, so internals never leak into a response.
-func (s *Server) serviceError(w http.ResponseWriter, r *http.Request, action string, err error) {
+//
+// draft is what the request asked to save, needed to convert the offsets of
+// validation problems; requests that save nothing pass the zero Draft.
+func (s *Server) serviceError(w http.ResponseWriter, r *http.Request, action string, draft app.Draft, err error) {
+	var (
+		invalid   *app.ValidationError
+		taken     *app.NameTakenError
+		conflict  *app.VersionConflictError
+		forbidden *app.ForbiddenError
+	)
 	switch {
+	case errors.As(err, &invalid):
+		writeInvalid(w, r, draft, invalid)
 	case errors.Is(err, app.ErrNameTaken):
-		writeError(w, r, http.StatusConflict, codeNameTaken, "A link with this name already exists.", nil)
+		// DIR-4: say which link has the name and whether the caller could
+		// edit that one instead.
+		var details map[string]any
+		if errors.As(err, &taken) {
+			details = map[string]any{
+				"existing": linkRefJSON{ID: taken.Existing.ID, Name: taken.Existing.Name},
+				"canEdit":  taken.Editable,
+			}
+		}
+		writeError(w, r, http.StatusConflict, codeNameTaken, "A link with this name already exists.", details)
+	case errors.Is(err, app.ErrVersionConflict):
+		var details map[string]any
+		if errors.As(err, &conflict) {
+			details = map[string]any{"currentVersion": conflict.CurrentVersion}
+		}
+		writeError(w, r, http.StatusConflict, codeVersionConflict,
+			"This link was changed since you opened it. Load it again before saving.", details)
+	case errors.Is(err, app.ErrNotFound):
+		writeLinkNotFound(w, r)
 	case errors.Is(err, app.ErrForbidden):
-		writeError(w, r, http.StatusForbidden, codeForbidden, "You are not allowed to do this.", nil)
+		// PRD 5.7, save example 5: the refusal names the owner and points at
+		// the link, so the user knows whom to ask and what about.
+		message, details := "You are not allowed to do this.", map[string]any(nil)
+		if errors.As(err, &forbidden) {
+			name := forbidden.Link.Name
+			message = "You can't change go/" + name + ". Only its owner or an administrator can."
+			if forbidden.Owner != "" {
+				message = "You can't change go/" + name + ": it belongs to " + forbidden.Owner +
+					". Ask them to change it, or to hand it over."
+			}
+			details = map[string]any{
+				"link":  linkRefJSON{ID: forbidden.Link.ID, Name: name},
+				"owner": ownerJSON{ID: forbidden.Link.OwnerID, DisplayName: forbidden.Owner},
+			}
+		}
+		writeError(w, r, http.StatusForbidden, codeForbidden, message, details)
 	default:
 		s.log.Error(action+" failed", "error", err)
 		writeError(w, r, http.StatusInternalServerError, codeInternal, "Something went wrong on the server.", nil)
 	}
+}
+
+func writeLinkNotFound(w http.ResponseWriter, r *http.Request) {
+	writeError(w, r, http.StatusNotFound, codeLinkNotFound, "There is no such link.", nil)
+}
+
+// linkRefJSON points at a link without describing it.
+type linkRefJSON struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }
 
 // linkJSON is a link as every endpoint returns it (plan section 3.5).
@@ -258,9 +357,20 @@ type routeJSON struct {
 	ID          int64  `json:"id"`
 	Pattern     string `json:"pattern"`
 	Destination string `json:"destination"`
-	// Variables is always empty in L1; the field is present so clients can
-	// be written against the final shape.
-	Variables []any `json:"variables"`
+	// Variables lists the pattern's variables in pattern order; empty for a
+	// route of literals only.
+	Variables []variableJSON `json:"variables"`
+}
+
+// variableJSON is one variable of a saved route. Type and Accepts are read
+// from the stored pattern by the link model; Description and Example are
+// what the owner wrote beside it.
+type variableJSON struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Accepts     string `json:"accepts"`
+	Description string `json:"description"`
+	Example     string `json:"example"`
 }
 
 // usageJSON is all zeros until usage counting arrives in L5.
@@ -284,7 +394,15 @@ func (s *Server) linkJSON(r *http.Request, l linkmodel.Link) linkJSON {
 		UpdatedAt: formatTime(l.UpdatedAt),
 	}
 	for _, rt := range l.Routes {
-		out.Routes = append(out.Routes, routeJSON{ID: rt.ID, Pattern: rt.Pattern, Destination: rt.Destination, Variables: []any{}})
+		// The link model reads the pattern; nothing here knows its syntax.
+		infos := linkmodel.RouteVariables(rt)
+		variables := make([]variableJSON, 0, len(infos))
+		for _, v := range infos {
+			variables = append(variables, variableJSON{
+				Name: v.Name, Type: v.Type, Accepts: v.Accepts, Description: v.Description, Example: v.Example,
+			})
+		}
+		out.Routes = append(out.Routes, routeJSON{ID: rt.ID, Pattern: rt.Pattern, Destination: rt.Destination, Variables: variables})
 	}
 	return out
 }

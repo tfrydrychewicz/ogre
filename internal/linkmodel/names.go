@@ -92,7 +92,7 @@ var reservedExact = map[string]bool{
 // Such a path must never be treated as a go link: a link named "favicon.ico"
 // would be followed by every tab that asks for the site icon, and its misses
 // would drown the real ones. The server answers these paths itself and
-// ValidatePattern refuses them as link names. The comparison ignores case, as
+// ParsePattern refuses them as link names. The comparison ignores case, as
 // name lookup does.
 func ReservedName(name string) bool {
 	n := NormalizeName(name)

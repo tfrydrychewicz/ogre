@@ -2,8 +2,46 @@ package httpd
 
 import (
 	"net/http"
+	"slices"
 	"testing"
 )
+
+// The hosts a destination may not point at are the ones the Host guard
+// serves, plus the listen address.
+func TestOwnHosts(t *testing.T) {
+	tests := []struct {
+		name       string
+		addr       string
+		allowHosts []string
+		want       []string
+	}{
+		{"default", "localhost:4655", nil,
+			[]string{"127.0.0.1:4655", "[::1]:4655", "localhost:4655"}},
+		{"allowed names, with and without a port", "localhost:4655", []string{"Go", "go:80", "fd00::1"},
+			[]string{"127.0.0.1:4655", "[::1]:4655", "[fd00::1]:4655", "go:4655", "go:80", "localhost:4655"}},
+		{"another loopback address", "127.0.0.2:8080", nil,
+			[]string{"127.0.0.1:8080", "127.0.0.2:8080", "[::1]:8080", "localhost:8080"}},
+		{"a LAN address", "192.168.1.10:4655", nil,
+			[]string{"127.0.0.1:4655", "192.168.1.10:4655", "[::1]:4655", "localhost:4655"}},
+		{"every interface names no host", "0.0.0.0:4655", nil,
+			[]string{"127.0.0.1:4655", "[::1]:4655", "localhost:4655"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := OwnHosts(tt.addr, tt.allowHosts)
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("OwnHosts(%q, %q) = %q, want %q", tt.addr, tt.allowHosts, got, tt.want)
+			}
+			// Agreement with the guard: every name it serves is own.
+			list := newHostList(tt.addr, tt.allowHosts)
+			for _, h := range got {
+				if !list.allows(h, false) && h != tt.addr {
+					t.Errorf("%q is own but the Host guard refuses it", h)
+				}
+			}
+		})
+	}
+}
 
 func TestHostAllowList(t *testing.T) {
 	tests := []struct {

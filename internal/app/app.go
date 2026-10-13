@@ -1,5 +1,5 @@
-// Package app holds the Ogre server's use cases: resolving a request and
-// creating and listing links.
+// Package app holds the Ogre server's use cases: resolving a request, and
+// creating, checking, reading, changing and deleting links.
 //
 // It is the only package that writes through the store (plan section 3.2).
 // Every use case that reads or changes data on someone's behalf takes an
@@ -10,7 +10,9 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/tfrydrychewicz/ogre/internal/index"
@@ -23,6 +25,10 @@ import (
 type App struct {
 	store store.Store
 	index *index.Index
+	// suggest tunes "Did you mean"; rules is what the save rules need to
+	// know about this Directory. Both are fixed for the life of the App.
+	suggest linkmodel.SuggestOptions
+	rules   linkmodel.ValidateOptions
 
 	// writeMu serializes writes. A write derives the next snapshot from the
 	// current one, so two writes at once would each publish a snapshot that
@@ -39,13 +45,26 @@ type App struct {
 
 // New returns an App over st with every stored link loaded into the index.
 // Loading everything up front is what lets Resolve answer without the
-// database for the life of the process.
-func New(ctx context.Context, st store.Store) (*App, error) {
+// database for the life of the process: each link is compiled here, once,
+// regular expressions included, and again only when it is saved.
+//
+// opts is optional; without it the defaults apply (Options). Only the first
+// value is used.
+func New(ctx context.Context, st store.Store, opts ...Options) (*App, error) {
+	var o Options
+	if len(opts) > 0 {
+		o = opts[0]
+	}
 	links, err := st.ListLinks(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("load links into the index: %w", err)
 	}
-	return &App{store: st, index: index.New(index.Build(links))}, nil
+	return &App{
+		store:   st,
+		index:   index.New(index.Build(links)),
+		suggest: o.Suggest,
+		rules:   linkmodel.ValidateOptions{OwnHosts: slices.Clone(o.OwnHosts)},
+	}, nil
 }
 
 // Actor is who a use case acts for. Local mode supplies the built-in user
@@ -91,6 +110,22 @@ func (a *App) ListLinks(ctx context.Context, _ Actor) ([]linkmodel.Link, error) 
 		return nil, fmt.Errorf("list links: %w", err)
 	}
 	return links, nil
+}
+
+// GetLink returns the link with the given ID, with its routes in order, or
+// ErrNotFound. It reads the store, not the index, so what it returns is what
+// an edit will be checked against (the version above all).
+//
+// The actor is unused for the same reason as in ListLinks.
+func (a *App) GetLink(ctx context.Context, _ Actor, id int64) (linkmodel.Link, error) {
+	l, err := a.store.GetLink(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return linkmodel.Link{}, ErrNotFound
+	}
+	if err != nil {
+		return linkmodel.Link{}, fmt.Errorf("read link %d: %w", id, err)
+	}
+	return l, nil
 }
 
 // localUser returns the built-in user, asking the store only until the first

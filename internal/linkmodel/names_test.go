@@ -131,7 +131,7 @@ func TestPossibleName(t *testing.T) {
 		{"a digit first", "2fa", true},
 		{"single character", "a", true},
 		{"the longest name", strings.Repeat("a", MaxPatternLength), true},
-		// Possible as text; whether it may be saved is ValidatePattern's call.
+		// Possible as text; whether it may be saved is ParsePattern's call.
 		{"a reserved name", "favicon.ico", true},
 
 		{"empty", "", false},

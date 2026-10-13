@@ -15,11 +15,13 @@ const (
 	codeUnsupportedMediaType = "request.unsupported_media_type"
 	codeCrossSite            = "request.cross_site"
 	codeMethodNotAllowed     = "request.method_not_allowed"
-	codeNotFound             = "not_found"
-	codeForbidden            = "forbidden"
+	codeNotFound             = "not_found" // no such endpoint or page
 	codeInternal             = "internal"
 	codeLinkInvalid          = "link.invalid"
+	codeLinkNotFound         = "link.not_found"
 	codeNameTaken            = "link.name_taken"
+	codeVersionConflict      = "link.version_conflict"
+	codeForbidden            = "link.forbidden"
 )
 
 // writeText writes a plain-text response. HEAD gets the same headers,

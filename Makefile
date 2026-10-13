@@ -3,7 +3,9 @@
 #   make run      start the Directory from source (ARGS="--db /tmp/x.db" passes flags)
 #   make build    compile bin/ogre
 #   make test     Go tests, with the race detector
+#   make spec-pending  list the PRD fixture rows that wait for a later milestone
 #   make fuzz     every fuzz target, FUZZTIME each (default 10s)
+#   make bench    the benchmarks at 100,000 links (BENCH=. runs every benchmark)
 #   make e2e      end-to-end tests in headless Chromium with the extension
 #   make check    everything; the gate before every commit
 #
@@ -14,6 +16,18 @@ GO_DIRS     := cmd internal
 VERSION     ?= 0.1.0-dev
 FUZZTIME    ?= 10s
 FUZZMINIMIZETIME ?= 1s
+# Which benchmarks "make bench" runs: a regular expression on their names.
+# The default is the ones the plan sets targets for (L2: a hit under 1 ms and
+# an unknown-name miss under 50 ms, in process, at 100,000 links), and the
+# costliest request a saved link allows (NFR-8).
+BENCH       ?= 100k|Worst
+BENCHTIME   ?= 1s
+# The spec tests, and the fixture rows they are expected to skip: row 18
+# (query passthrough, RES-8) at each of the three levels it is replayed at.
+SPEC_PACKAGES := ./internal/linkmodel ./internal/app ./cmd/ogre
+SPEC_PENDING  := 'TestSpecRequests/18_go/gh/api-server?tab=readme' \
+                 'TestSpecRequests/18_go/gh/api-server?tab=readme' \
+                 'TestSpecRequestsThroughHTTP/18_go/gh/api-server?tab=readme'
 # Pinned, so the gate is the same for the same commit; raise it on purpose.
 STATICCHECK_VERSION ?= 2026.2.2
 STATICCHECK := go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
@@ -23,8 +37,8 @@ STATICCHECK := go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 BANNED_DOM  := innerHTML|insertAdjacentHTML
 BROWSER_DIRS := internal/web/static extension
 
-.PHONY: run build test fuzz e2e check clean \
-        fmt-check vet staticcheck typecheck test-extension dom-guard
+.PHONY: run build test fuzz bench e2e check clean \
+        fmt-check vet staticcheck spec-pending typecheck test-extension dom-guard
 
 run:
 	go run ./cmd/ogre $(ARGS)
@@ -34,6 +48,23 @@ build:
 
 test:
 	go test -race -count=1 $(GO_PACKAGES)
+
+# Rows of the PRD fixture (internal/linkmodel/testdata/spec.json) that wait
+# for a later milestone are skipped by the spec tests, after their interim
+# answer is checked. "go test" without -v says nothing about a skip, so a row
+# could stay pending, or become pending, without anyone seeing it. This step
+# prints every skipped row and fails unless they are exactly the ones listed
+# in SPEC_PENDING: taking a row off the list is part of implementing it.
+spec-pending:
+	@out=$$(go test -count=1 -v -run 'Spec' $(SPEC_PACKAGES) 2>&1) || { echo "$$out" | tail -n 40; exit 1; }; \
+	got=$$(echo "$$out" | sed -nE 's/^ *--- SKIP: ([^ ]+) .*/\1/p' | sort); \
+	want=$$(printf '%s\n' $(SPEC_PENDING) | sort); \
+	echo "spec rows pending a later milestone (skipped; their interim answer is checked):"; \
+	if [ -n "$$got" ]; then echo "$$got" | sed 's/^/  /'; else echo "  none"; fi; \
+	if [ "$$got" != "$$want" ]; then \
+	  echo "spec-pending: the skipped rows differ from SPEC_PENDING in the Makefile; expected:"; \
+	  printf '  %s\n' $(SPEC_PENDING); exit 1; \
+	fi
 
 # Each fuzz target runs alone, because "go test -fuzz" accepts one target and
 # one package at a time. The targets are found by name, so a new one needs no
@@ -74,6 +105,14 @@ fuzz:
 	    done; \
 	  done; \
 	done
+
+# Benchmarks are found by name in every package, like the fuzz targets, so a
+# new one that carries "100k" or "Worst" in its name needs no change here. They are not
+# part of check: the numbers mean something only on a quiet machine. Every
+# benchmark asserts its own outcome before the clock starts, so a run that
+# prints numbers also resolved what it claims to have resolved.
+bench:
+	go test -run='^$$' -bench='$(BENCH)' -benchmem -benchtime=$(BENCHTIME) $(GO_PACKAGES)
 
 e2e:
 	npm run e2e
@@ -128,7 +167,7 @@ dom-guard:
 	fi; \
 	echo "dom-guard: ok"
 
-check: fmt-check vet staticcheck test fuzz typecheck test-extension dom-guard e2e
+check: fmt-check vet staticcheck test spec-pending fuzz typecheck test-extension dom-guard e2e
 	@echo "make check: all passed"
 
 clean:

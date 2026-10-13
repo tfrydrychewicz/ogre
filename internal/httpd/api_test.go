@@ -117,7 +117,7 @@ const threeRouteBody = `{"routes":[
 
 func TestCreateLinkErrors(t *testing.T) {
 	problems := []linkmodel.Problem{
-		{Severity: "error", Field: "pattern", Code: "pattern.variables_unsupported", Message: "Variables are not supported yet.", Start: 5, End: 11},
+		{Severity: "error", Field: "pattern", Code: "pattern.unknown_type", Message: "There is no such type.", Start: 5, End: 11},
 		{Severity: "warning", Field: "destination", Code: "destination.example", Message: "Just a warning."},
 	}
 	tests := []struct {
@@ -136,7 +136,7 @@ func TestCreateLinkErrors(t *testing.T) {
 			wantStatus: http.StatusUnprocessableEntity,
 			wantCode:   codeLinkInvalid,
 			wantDetails: `{"problems":[],"routes":[{"problems":[
-				{"severity":"error","field":"pattern","code":"pattern.variables_unsupported","message":"Variables are not supported yet.","start":3,"end":9},
+				{"severity":"error","field":"pattern","code":"pattern.unknown_type","message":"There is no such type.","start":3,"end":9},
 				{"severity":"warning","field":"destination","code":"destination.example","message":"Just a warning.","start":0,"end":0}]}]}`,
 		},
 		{
@@ -219,7 +219,7 @@ func TestCreateLinkRejectsBadBodies(t *testing.T) {
 		{"wrong type", `{"routes":"roadmap"}`, http.StatusBadRequest, codeMalformed, "routes"},
 		{"wrong nested type", `{"routes":[{"pattern":1}]}`, http.StatusBadRequest, codeMalformed, "pattern"},
 		{"unknown field", `{"name":"roadmap","routes":[]}`, http.StatusBadRequest, codeMalformed, `unknown field "name"`},
-		{"unknown nested field", `{"routes":[{"pattern":"x","destination":"https://x.example","id":3}]}`, http.StatusBadRequest, codeMalformed, `unknown field "id"`},
+		{"unknown nested field", `{"routes":[{"pattern":"x","destination":"https://x.example","position":3}]}`, http.StatusBadRequest, codeMalformed, `unknown field "position"`},
 		{"misspelled field", `{"desciption":"x","routes":[]}`, http.StatusBadRequest, codeMalformed, `unknown field "desciption"`},
 		{"second value", validBody + validBody, http.StatusBadRequest, codeMalformed, "extra data"},
 		{"trailing garbage", validBody + ` trailing`, http.StatusBadRequest, codeMalformed, ""},
@@ -413,7 +413,7 @@ func TestInternalRouting(t *testing.T) {
 		{"unknown API version", request{target: "/-/api/v2/meta"}, http.StatusNotFound, codeNotFound, "", false},
 		{"API root", request{target: "/-/api/"}, http.StatusNotFound, codeNotFound, "", false},
 		{"links with a trailing slash", request{target: "/-/api/v1/links/"}, http.StatusNotFound, codeNotFound, "", false},
-		{"a link by id (L2)", request{target: "/-/api/v1/links/12"}, http.StatusNotFound, codeNotFound, "", false},
+		{"below a link (history arrives in L5)", request{target: "/-/api/v1/links/12/revisions"}, http.StatusNotFound, codeNotFound, "", false},
 
 		{"DELETE links", request{method: http.MethodDelete, target: "/-/api/v1/links", headers: map[string]string{"Content-Type": "application/json"}},
 			http.StatusMethodNotAllowed, codeMethodNotAllowed, "GET, HEAD, POST", false},

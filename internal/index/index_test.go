@@ -244,11 +244,11 @@ func TestFindReturnsTheCompiledLink(t *testing.T) {
 		if !ok || c.Link.ID != 2 {
 			t.Fatalf("Find(%q) = link %d, %v; want link 2", name, c.Link.ID, ok)
 		}
-		if route, ok := c.Match([]string{"GH", "New"}); !ok || route.ID != 21 {
-			t.Errorf("Find(%q).Match(GH/New) = %+v, %v; want route 21", name, route, ok)
+		if m, ok, _, err := c.Match([]string{"GH", "New"}); !ok || err != nil || m.Route.ID != 21 {
+			t.Errorf("Find(%q).Match(GH/New) = %+v, %v, %v; want route 21", name, m, ok, err)
 		}
-		if route, ok := c.Match([]string{"gh", "old"}); ok {
-			t.Errorf("Find(%q).Match(gh/old) matched %+v", name, route)
+		if m, ok, reasons, _ := c.Match([]string{"gh", "old"}); ok || len(reasons) != 2 {
+			t.Errorf("Find(%q).Match(gh/old) = %+v, %v with %d reasons; want a miss with one reason per route", name, m, ok, len(reasons))
 		}
 		looked, _ := s.Lookup(name)
 		if looked.ID != c.Link.ID || len(looked.Routes) != len(c.Link.Routes) {
@@ -270,8 +270,11 @@ func TestFindReturnsTheCompiledLink(t *testing.T) {
 	// A link added with With is compiled like one given to Build.
 	next := s.With(link(3, "wiki", linkmodel.Route{ID: 30, Pattern: "wiki/home", Destination: "https://wiki.example.com/"}))
 	c, ok := next.Find("WIKI")
-	if route, matched := c.Match([]string{"wiki", "Home"}); !ok || !matched || route.ID != 30 {
-		t.Errorf("after With, Find(WIKI).Match(wiki/Home) = %+v, %v, %v; want route 30", route, ok, matched)
+	if !ok {
+		t.Fatal("after With, Find(WIKI) found nothing")
+	}
+	if m, matched, _, err := c.Match([]string{"wiki", "Home"}); !matched || err != nil || m.Route.ID != 30 {
+		t.Errorf("after With, Find(WIKI).Match(wiki/Home) = %+v, %v, %v; want route 30", m, matched, err)
 	}
 }
 

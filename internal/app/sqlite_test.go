@@ -73,16 +73,16 @@ func TestUseCasesOverSQLite(t *testing.T) {
 
 	tests := []struct {
 		path string
-		want Decision
+		want outcome
 	}{
-		{"/roadmap", Decision{DecisionHit, "roadmap", "https://example.com/roadmap"}},
-		{"/Roadmap/Next", Decision{DecisionHit, "roadmap", "https://example.com/roadmap/next"}},
-		{"/road-map", Decision{DecisionHit, "road-map", "https://example.com/hyphen"}},
-		{"/road_map", Decision{DecisionMissUnknown, "road_map", ""}},
-		{"/roadmap/later", Decision{DecisionMissKnown, "roadmap", ""}},
+		{"/roadmap", outcome{DecisionHit, "roadmap", "https://example.com/roadmap"}},
+		{"/Roadmap/Next", outcome{DecisionHit, "roadmap", "https://example.com/roadmap/next"}},
+		{"/road-map", outcome{DecisionHit, "road-map", "https://example.com/hyphen"}},
+		{"/road_map", outcome{DecisionMissUnknown, "road_map", ""}},
+		{"/roadmap/later", outcome{DecisionMissKnown, "roadmap", ""}},
 	}
 	for _, tt := range tests {
-		if got := a.Resolve(tt.path); got != tt.want {
+		if got := brief(a.Resolve(tt.path)); got != tt.want {
 			t.Errorf("after restart, Resolve(%q) = %+v, want %+v", tt.path, got, tt.want)
 		}
 	}

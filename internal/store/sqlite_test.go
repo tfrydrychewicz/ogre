@@ -46,7 +46,7 @@ func sampleLink(t *testing.T, s *SQLite, name string) linkmodel.Link {
 			{Pattern: name, Destination: "https://example.com/" + name},
 			{Pattern: name + "/sub", Destination: "https://example.com/" + name + "/sub"},
 		},
-	})
+	}, u.ID)
 	if err != nil {
 		t.Fatalf("CreateLink(%q): %v", name, err)
 	}
@@ -320,7 +320,7 @@ func TestForeignKeysAreEnforced(t *testing.T) {
 		}
 	})
 	t.Run("link needs an owner", func(t *testing.T) {
-		_, err := s.CreateLink(context.Background(), linkmodel.Link{Name: "orphan", OwnerID: 424242})
+		_, err := s.CreateLink(context.Background(), linkmodel.Link{Name: "orphan", OwnerID: 424242}, link.OwnerID)
 		if err == nil {
 			t.Fatal("a link whose owner does not exist was accepted")
 		}
@@ -382,7 +382,7 @@ func TestFailedCreateWritesNoRows(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := s.CreateLink(ctx, tt.link)
+			_, err := s.CreateLink(ctx, tt.link, owner)
 			if err == nil {
 				t.Fatal("CreateLink succeeded")
 			}
@@ -394,6 +394,9 @@ func TestFailedCreateWritesNoRows(t *testing.T) {
 			}
 			if n := count(t, s, `SELECT count(*) FROM routes`); n != 2 {
 				t.Errorf("routes has %d rows, want 2", n)
+			}
+			if n := count(t, s, `SELECT count(*) FROM revisions`); n != 1 {
+				t.Errorf("revisions has %d rows, want 1: a refused link has no history", n)
 			}
 		})
 	}

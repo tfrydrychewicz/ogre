@@ -60,6 +60,15 @@ func checkWrite(r *http.Request) *rejection {
 	}
 	// A cross-site form can only send three content types, none of them
 	// JSON; anything else needs a preflight, which is never approved.
+	//
+	// DELETE is exempt from this one check. It has no body to declare a type
+	// for, and it needs no such proof: a page of another site cannot send a
+	// DELETE at all without a preflight (a form knows only GET and POST, and
+	// fetch treats the method as non-simple), and no preflight is approved
+	// here. The two checks above still apply to it.
+	if r.Method == http.MethodDelete {
+		return nil
+	}
 	if contentType, _, single := oneHeader(r, "Content-Type"); !single || !isJSON(contentType) {
 		return &rejection{http.StatusUnsupportedMediaType, codeUnsupportedMediaType,
 			"Send this request with Content-Type: application/json, once."}

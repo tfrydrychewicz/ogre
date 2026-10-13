@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -15,7 +16,7 @@ import (
 
 func TestCreateLinkReturnsTheSavedLink(t *testing.T) {
 	a, st := newApp(t)
-	st.owners[7] = true
+	ada := st.addUser(t, "Ada")
 	in := Draft{
 		Description: "  GitHub shortcuts \n",
 		Routes: []DraftRoute{
@@ -25,7 +26,7 @@ func TestCreateLinkReturnsTheSavedLink(t *testing.T) {
 	}
 	before := time.Now().UTC().Add(-time.Second)
 
-	got, err := a.CreateLink(context.Background(), Actor{UserID: 7, DisplayName: "Ada"}, in)
+	got, err := a.CreateLink(context.Background(), ada, in)
 	if err != nil {
 		t.Fatalf("CreateLink: %v", err)
 	}
@@ -39,17 +40,17 @@ func TestCreateLinkReturnsTheSavedLink(t *testing.T) {
 	if got.Description != "GitHub shortcuts" {
 		t.Errorf("Description = %q, want it trimmed", got.Description)
 	}
-	if got.OwnerID != 7 {
-		t.Errorf("OwnerID = %d, want 7: the creator becomes the owner (DIR-1)", got.OwnerID)
+	if got.OwnerID != ada.UserID {
+		t.Errorf("OwnerID = %d, want %d: the creator becomes the owner (DIR-1)", got.OwnerID, ada.UserID)
 	}
 	if got.CreatedAt.Before(before) || !got.CreatedAt.Equal(got.UpdatedAt) || got.CreatedAt.Location() != time.UTC {
 		t.Errorf("CreatedAt = %v, UpdatedAt = %v; want the same recent UTC instant", got.CreatedAt, got.UpdatedAt)
 	}
 
 	wantRoutes := []linkmodel.Route{
-		{Position: 0, Pattern: "gh", Destination: "https://github.com/acme"},
+		{Position: 0, Pattern: "gh", Destination: "https://github.com/acme", Variables: []linkmodel.VariableMeta{}},
 		// Patterns are saved lowercase; a destination is never altered.
-		{Position: 1, Pattern: "gh/new", Destination: "https://github.com/Organizations/Acme/new"},
+		{Position: 1, Pattern: "gh/new", Destination: "https://github.com/Organizations/Acme/new", Variables: []linkmodel.VariableMeta{}},
 	}
 	if len(got.Routes) != len(wantRoutes) {
 		t.Fatalf("Routes = %+v, want %d routes", got.Routes, len(wantRoutes))
@@ -60,14 +61,14 @@ func TestCreateLinkReturnsTheSavedLink(t *testing.T) {
 			t.Errorf("route %d has no ID", i)
 		}
 		r.ID = 0
-		if r != want {
+		if !reflect.DeepEqual(r, want) {
 			t.Errorf("route %d = %+v, want %+v", i, r, want)
 		}
 	}
 
 	// What the store received is what was returned.
 	stored, _ := st.ListLinks(context.Background())
-	if len(stored) != 1 || stored[0].Name != "gh" || stored[0].OwnerID != 7 || !slices.Equal(stored[0].Routes, got.Routes) {
+	if len(stored) != 1 || stored[0].Name != "gh" || stored[0].OwnerID != ada.UserID || !reflect.DeepEqual(stored[0].Routes, got.Routes) {
 		t.Errorf("store holds %+v, want the returned link", stored)
 	}
 	// The caller's draft is left as it was.
@@ -134,8 +135,7 @@ func TestCreateLinkForbidden(t *testing.T) {
 		t.Errorf("Resolve(/roadmap) = %+v after a forbidden create", d)
 	}
 	// Admin is not what grants creation: any identified actor may create.
-	st.owners[5] = true
-	if _, err := a.CreateLink(context.Background(), Actor{UserID: 5}, draft("roadmap", "https://example.com")); err != nil {
+	if _, err := a.CreateLink(context.Background(), st.addUser(t, "Grace"), draft("roadmap", "https://example.com")); err != nil {
 		t.Errorf("CreateLink as a non-admin user: %v", err)
 	}
 }
@@ -168,7 +168,7 @@ func TestCreateLinkStoreFailure(t *testing.T) {
 func TestIndexSwapsAfterCommit(t *testing.T) {
 	a, st := newApp(t)
 	var during Decision
-	st.beforeCommit = func() { during = a.Resolve("/roadmap") }
+	st.beforeWrite = func() { during = a.Resolve("/roadmap") }
 
 	mustCreate(t, a, draft("roadmap", "https://example.com"))
 
@@ -194,8 +194,12 @@ func TestCreateLinkValidation(t *testing.T) {
 		{"no routes", Draft{Description: "nothing"}, []string{linkmodel.CodeNoRoutes}, nil},
 		{"one route, both fields", draft("a b", "ftp://x"), nil, [][]string{
 			{linkmodel.CodePatternBadCharacter, linkmodel.CodeDestinationScheme}}},
-		{"second of three routes", draft("gh", ok, "gh/{repo}", ok, "gh/new", ok), nil, [][]string{
-			nil, {linkmodel.CodePatternVariablesUnsupported}, nil}},
+		{"second of three routes", draft("gh", ok, "gh/{id:uuid}", ok, "gh/new", ok), nil, [][]string{
+			nil, {linkmodel.CodePatternUnknownType}, nil}},
+		{"same shape", draft("gh/{repo}", ok+"/{repo}", "gh/{name}", ok+"/{name}"), nil, [][]string{
+			nil, {linkmodel.CodeSameShape}}},
+		{"an error beside a warning", draft("gh/{repo}", ok, "gh/{a}/{b}", ok+"/{c}"), nil, [][]string{
+			{linkmodel.CodeDestinationUnusedVariable}, {linkmodel.CodeDestinationUndeclaredVariable}}},
 		{"rules across routes", draft("gh", ok, "gl", "nope", "GH", ok), nil, [][]string{
 			nil,
 			{linkmodel.CodeNameMismatch, linkmodel.CodeDestinationNotAbsolute},

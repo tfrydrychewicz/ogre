@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -21,6 +22,11 @@ import (
 // Factory returns a new, empty store for one test and arranges, with
 // t.Cleanup, for it to be closed. "Empty" means freshly opened: the built-in
 // local user exists and there are no links.
+//
+// The store it returns must also implement store.RevisionReader. Writing
+// history is part of the contract, and reading it back is the only way the
+// suite can see it through the interface; a store without it fails the cases
+// that look at revisions.
 type Factory func(t *testing.T) store.Store
 
 // Run runs the whole suite. Each case gets its own store from newStore.
@@ -42,6 +48,37 @@ func Run(t *testing.T, newStore Factory) {
 		{"FailingRouteStoresNothing", testFailingRouteStoresNothing},
 		{"ConcurrentCreates", testConcurrentCreates},
 		{"ConcurrentSameName", testConcurrentSameName},
+
+		// changes.go
+		{"GetLink", testGetLink},
+		{"UpdateLink", testUpdateLink},
+		{"UpdateLeavesInputAlone", testUpdateLeavesInputAlone},
+		{"UpdateSwapsPatterns", testUpdateSwapsPatterns},
+		{"UpdateVersionConflict", testUpdateVersionConflict},
+		{"UpdateMissingLink", testUpdateMissingLink},
+		{"RenameToFreeName", testRenameToFreeName},
+		{"RenameToTakenName", testRenameToTakenName},
+		{"UpdateNameMustBeNormalized", testUpdateNameMustBeNormalized},
+		{"UpdateRouteOfAnotherLink", testUpdateRouteOfAnotherLink},
+		{"FailingUpdateChangesNothing", testFailingUpdateChangesNothing},
+		{"DeleteLink", testDeleteLink},
+		{"DeleteVersion", testDeleteVersion},
+		{"DeleteMissingLink", testDeleteMissingLink},
+		{"ConcurrentUpdates", testConcurrentUpdates},
+		{"ConcurrentDeletes", testConcurrentDeletes},
+
+		// history.go
+		{"Revisions", testRevisions},
+		{"RevisionsOfUnknownLink", testRevisionsOfUnknownLink},
+		{"RefusedChangesWriteNoRevision", testRefusedChangesWriteNoRevision},
+		{"UnknownEditorChangesNothing", testUnknownEditorChangesNothing},
+
+		// variables.go
+		{"VariablesRoundTrip", testVariablesRoundTrip},
+		{"VariablesFollowThePattern", testVariablesFollowThePattern},
+		{"VariablesAreReplacedByAnUpdate", testVariablesAreReplacedByAnUpdate},
+		{"VariablesMustBelongToThePattern", testVariablesMustBelongToThePattern},
+		{"SameShapeIsRefused", testSameShapeIsRefused},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -90,7 +127,7 @@ func testCreateLinkSetsFields(t *testing.T, st store.Store) {
 	owner := localUserID(t, st)
 
 	before := time.Now().Add(-2 * time.Second)
-	got, err := st.CreateLink(ctx, linkmodel.Link{
+	got, err := createLink(ctx, st, linkmodel.Link{
 		// Values the store must ignore and replace.
 		ID:        987654,
 		Version:   42,
@@ -155,7 +192,7 @@ func testCreateLinkLeavesInputAlone(t *testing.T, st store.Store) {
 		OwnerID: localUserID(t, st),
 		Routes:  []linkmodel.Route{{Pattern: "docs", Destination: "https://example.com/docs"}},
 	}
-	if _, err := st.CreateLink(context.Background(), in); err != nil {
+	if _, err := createLink(context.Background(), st, in); err != nil {
 		t.Fatalf("CreateLink: %v", err)
 	}
 	if in.ID != 0 || in.Routes[0].ID != 0 {
@@ -185,7 +222,7 @@ func testRoundTrip(t *testing.T, st store.Store) {
 	}
 	created := map[string]linkmodel.Link{}
 	for _, d := range drafts {
-		l, err := st.CreateLink(ctx, d)
+		l, err := createLink(ctx, st, d)
 		if err != nil {
 			t.Fatalf("CreateLink(%q): %v", d.Name, err)
 		}
@@ -221,7 +258,7 @@ func testTextIsStoredVerbatim(t *testing.T, st store.Store) {
 			{Pattern: "odd", Destination: "https://Docs.Example.com/Road-Map/1aB_cD?Tab=A%2Fb&q=a%20b&X='Y'#Frag"},
 		},
 	}
-	if _, err := st.CreateLink(ctx, in); err != nil {
+	if _, err := createLink(ctx, st, in); err != nil {
 		t.Fatalf("CreateLink: %v", err)
 	}
 	got := mustList(t, st)
@@ -240,7 +277,7 @@ func testDuplicateName(t *testing.T, st store.Store) {
 	ctx := context.Background()
 	owner := localUserID(t, st)
 
-	first, err := st.CreateLink(ctx, linkmodel.Link{
+	first, err := createLink(ctx, st, linkmodel.Link{
 		Name: "roadmap", Description: "the original", OwnerID: owner,
 		Routes: []linkmodel.Route{{Pattern: "roadmap", Destination: "https://example.com/1"}},
 	})
@@ -248,7 +285,7 @@ func testDuplicateName(t *testing.T, st store.Store) {
 		t.Fatalf("CreateLink: %v", err)
 	}
 
-	_, err = st.CreateLink(ctx, linkmodel.Link{
+	_, err = createLink(ctx, st, linkmodel.Link{
 		Name: "roadmap", Description: "the impostor", OwnerID: owner,
 		Routes: []linkmodel.Route{
 			{Pattern: "roadmap", Destination: "https://example.com/2"},
@@ -266,7 +303,7 @@ func testDuplicateName(t *testing.T, st store.Store) {
 	assertSameLink(t, got[0], first)
 
 	// The store is still usable for a different name.
-	if _, err := st.CreateLink(ctx, linkmodel.Link{
+	if _, err := createLink(ctx, st, linkmodel.Link{
 		Name: "other", OwnerID: owner,
 		Routes: []linkmodel.Route{{Pattern: "other", Destination: "https://example.com/o"}},
 	}); err != nil {
@@ -281,15 +318,15 @@ func testDuplicateName(t *testing.T, st store.Store) {
 func testNameMustBeNormalized(t *testing.T, st store.Store) {
 	ctx := context.Background()
 	owner := localUserID(t, st)
-	route := func(p string) []linkmodel.Route {
+	routes := func(p string) []linkmodel.Route {
 		return []linkmodel.Route{{Pattern: p, Destination: "https://example.com/"}}
 	}
 
-	if _, err := st.CreateLink(ctx, linkmodel.Link{Name: "docs", OwnerID: owner, Routes: route("docs")}); err != nil {
+	if _, err := createLink(ctx, st, linkmodel.Link{Name: "docs", OwnerID: owner, Routes: routes("docs")}); err != nil {
 		t.Fatalf("CreateLink(%q): %v", "docs", err)
 	}
 	for _, name := range []string{"Docs", "DOCS", "docS", "Other"} {
-		_, err := st.CreateLink(ctx, linkmodel.Link{Name: name, OwnerID: owner, Routes: route(linkmodel.NormalizeName(name))})
+		_, err := createLink(ctx, st, linkmodel.Link{Name: name, OwnerID: owner, Routes: routes(linkmodel.NormalizeName(name))})
 		if !errors.Is(err, store.ErrNameNotNormalized) {
 			t.Errorf("CreateLink(%q) error = %v, want ErrNameNotNormalized", name, err)
 		}
@@ -300,7 +337,7 @@ func testNameMustBeNormalized(t *testing.T, st store.Store) {
 	// Q5: only case is folded. A separator is part of the name, so these are
 	// normalized names of their own.
 	for _, name := range []string{"on-call", "on_call", "oncall", "v1.2"} {
-		if _, err := st.CreateLink(ctx, linkmodel.Link{Name: name, OwnerID: owner, Routes: route(name)}); err != nil {
+		if _, err := createLink(ctx, st, linkmodel.Link{Name: name, OwnerID: owner, Routes: routes(name)}); err != nil {
 			t.Errorf("CreateLink(%q): %v", name, err)
 		}
 	}
@@ -315,10 +352,12 @@ func testNameMustBeNormalized(t *testing.T, st store.Store) {
 }
 
 func testUnknownOwner(t *testing.T, st store.Store) {
+	// The editor exists, so it is the owner that makes this fail.
+	editor := localUserID(t, st)
 	_, err := st.CreateLink(context.Background(), linkmodel.Link{
-		Name: "orphan", OwnerID: localUserID(t, st) + 1000,
+		Name: "orphan", OwnerID: editor + 1000,
 		Routes: []linkmodel.Route{{Pattern: "orphan", Destination: "https://example.com/"}},
-	})
+	}, editor)
 	if err == nil {
 		t.Fatal("CreateLink with an owner that does not exist succeeded")
 	}
@@ -337,7 +376,7 @@ func testFailingRouteStoresNothing(t *testing.T, st store.Store) {
 	ctx := context.Background()
 	owner := localUserID(t, st)
 
-	_, err := st.CreateLink(ctx, linkmodel.Link{
+	_, err := createLink(ctx, st, linkmodel.Link{
 		Name: "twice", OwnerID: owner,
 		Routes: []linkmodel.Route{
 			{Pattern: "twice", Destination: "https://example.com/1"},
@@ -356,7 +395,7 @@ func testFailingRouteStoresNothing(t *testing.T, st store.Store) {
 	}
 
 	// The name is free again, so the corrected link can be saved.
-	if _, err := st.CreateLink(ctx, linkmodel.Link{
+	if _, err := createLink(ctx, st, linkmodel.Link{
 		Name: "twice", OwnerID: owner,
 		Routes: []linkmodel.Route{{Pattern: "twice", Destination: "https://example.com/1"}},
 	}); err != nil {
@@ -377,7 +416,7 @@ func testConcurrentCreates(t *testing.T, st store.Store) {
 		go func() {
 			defer wg.Done()
 			name := fmt.Sprintf("link-%02d", i)
-			l, err := st.CreateLink(ctx, linkmodel.Link{
+			l, err := createLink(ctx, st, linkmodel.Link{
 				Name: name, OwnerID: owner,
 				Routes: []linkmodel.Route{
 					{Pattern: name, Destination: "https://example.com/" + name},
@@ -426,7 +465,7 @@ func testConcurrentSameName(t *testing.T, st store.Store) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, errs[i] = st.CreateLink(ctx, linkmodel.Link{
+			_, errs[i] = createLink(ctx, st, linkmodel.Link{
 				Name: "contested", OwnerID: owner,
 				Routes: []linkmodel.Route{{Pattern: "contested", Destination: fmt.Sprintf("https://example.com/%d", i)}},
 			})
@@ -460,6 +499,42 @@ func localUserID(t *testing.T, st store.Store) int64 {
 	return u.ID
 }
 
+// createLink is CreateLink with the link's owner as the editor, which is who
+// creates a link in every case here except those about editors.
+func createLink(ctx context.Context, st store.Store, l linkmodel.Link) (linkmodel.Link, error) {
+	return st.CreateLink(ctx, l, l.OwnerID)
+}
+
+// mustCreate stores a link owned and edited by the local user.
+func mustCreate(t *testing.T, st store.Store, l linkmodel.Link) linkmodel.Link {
+	t.Helper()
+	l.OwnerID = localUserID(t, st)
+	created, err := createLink(context.Background(), st, l)
+	if err != nil {
+		t.Fatalf("CreateLink(%q): %v", l.Name, err)
+	}
+	return created
+}
+
+// mustUpdate updates a link as the local user.
+func mustUpdate(t *testing.T, st store.Store, l linkmodel.Link, expectedVersion int) linkmodel.Link {
+	t.Helper()
+	updated, err := st.UpdateLink(context.Background(), l, expectedVersion, localUserID(t, st))
+	if err != nil {
+		t.Fatalf("UpdateLink(%q, version %d): %v", l.Name, expectedVersion, err)
+	}
+	return updated
+}
+
+func mustGet(t *testing.T, st store.Store, id int64) linkmodel.Link {
+	t.Helper()
+	l, err := st.GetLink(context.Background(), id)
+	if err != nil {
+		t.Fatalf("GetLink(%d): %v", id, err)
+	}
+	return l
+}
+
 func mustList(t *testing.T, st store.Store) []linkmodel.Link {
 	t.Helper()
 	links, err := st.ListLinks(context.Background())
@@ -469,7 +544,26 @@ func mustList(t *testing.T, st store.Store) []linkmodel.Link {
 	return links
 }
 
-// assertSameLink compares a link read back with the one CreateLink returned.
+// route is a route without variables.
+func route(pattern, destination string) linkmodel.Route {
+	return linkmodel.Route{Pattern: pattern, Destination: destination}
+}
+
+// assertStored checks that the store holds exactly want for that link, as
+// seen through both ways of reading it.
+func assertStored(t *testing.T, st store.Store, want linkmodel.Link) {
+	t.Helper()
+	assertSameLink(t, mustGet(t, st, want.ID), want)
+	for _, l := range mustList(t, st) {
+		if l.ID == want.ID {
+			assertSameLink(t, l, want)
+			return
+		}
+	}
+	t.Errorf("ListLinks does not include link %d (%q)", want.ID, want.Name)
+}
+
+// assertSameLink compares a link read back with the one a write returned.
 // Times are compared as instants, not as struct values.
 func assertSameLink(t *testing.T, got, want linkmodel.Link) {
 	t.Helper()
@@ -486,8 +580,10 @@ func assertSameLink(t *testing.T, got, want linkmodel.Link) {
 		return
 	}
 	for i := range want.Routes {
-		if got.Routes[i] != want.Routes[i] {
-			t.Errorf("link %q route %d read back as %+v, want %+v", want.Name, i, got.Routes[i], want.Routes[i])
+		g, w := got.Routes[i], want.Routes[i]
+		if g.ID != w.ID || g.Position != w.Position || g.Pattern != w.Pattern || g.Destination != w.Destination ||
+			!slices.Equal(g.Variables, w.Variables) {
+			t.Errorf("link %q route %d read back as %+v, want %+v", want.Name, i, g, w)
 		}
 	}
 }

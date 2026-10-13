@@ -168,6 +168,15 @@ func TestWriteGuardsCoverEveryInternalPath(t *testing.T) {
 					t.Errorf("cross-site status = %d, want 403", crossSite.Code)
 				}
 
+				if reached || svc.calls() != 0 {
+					t.Errorf("a refused write reached a handler")
+				}
+				if method == http.MethodDelete {
+					// DELETE has no body and is not asked for a content type
+					// (see checkWrite and TestGuardsOnUpdateAndDelete).
+					return
+				}
+
 				form := request{method: method, target: target, body: "a=b", headers: map[string]string{
 					"Content-Type": "application/x-www-form-urlencoded",
 				}}.send(h)
@@ -175,7 +184,7 @@ func TestWriteGuardsCoverEveryInternalPath(t *testing.T) {
 					t.Errorf("form status = %d, want 415", form.Code)
 				}
 
-				if reached || len(svc.createdDrafts()) != 0 {
+				if reached || svc.calls() != 0 {
 					t.Errorf("a refused write reached a handler")
 				}
 			})
@@ -183,23 +192,60 @@ func TestWriteGuardsCoverEveryInternalPath(t *testing.T) {
 	}
 }
 
-// Reads are not guarded: what protects them is the absence of CORS headers,
-// which stops a page on another site from seeing the answer.
-func TestReadsAreNotGuardedAndCarryNoCORS(t *testing.T) {
-	h := newTestServer(&fakeService{}, nil).Handler()
-	for _, target := range []string{"/-/api/v1/links", "/-/api/v1/meta", "/-/healthz"} {
-		rec := request{target: target, headers: map[string]string{
-			"Origin": "https://other.example", "Sec-Fetch-Site": "cross-site",
-		}}.send(h)
-		if rec.Code != http.StatusOK {
-			t.Errorf("%s status = %d, want 200", target, rec.Code)
+// No read carries a CORS header, so a page of another site can never see an
+// answer. A read of the API from such a page is refused as well, before the
+// Service is asked anything: listing links and resolving are work, and a
+// visited page has no business setting it in motion. The health check and
+// the pages stay reachable; they cost nothing and say nothing.
+func TestCrossSiteReadsOfTheAPIAreRefused(t *testing.T) {
+	crossSite := map[string]string{
+		"Origin": "https://other.example", "Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "cors", "Sec-Fetch-Dest": "empty",
+	}
+	for target, want := range map[string]int{
+		"/-/api/v1/links":                http.StatusForbidden,
+		"/-/api/v1/links/12":             http.StatusForbidden,
+		"/-/api/v1/resolve?path=roadmap": http.StatusForbidden,
+		"/-/api/v1/meta":                 http.StatusForbidden,
+		"/-/api/v1/no-such-endpoint":     http.StatusForbidden,
+		"/-/healthz":                     http.StatusOK,
+	} {
+		svc := &fakeService{}
+		h := newTestServer(svc, nil).Handler()
+		rec := request{target: target, headers: crossSite}.send(h)
+		if rec.Code != want {
+			t.Errorf("cross-site %s status = %d, want %d", target, rec.Code, want)
+		}
+		if want == http.StatusForbidden && (errorCode(t, rec) != codeCrossSite || svc.calls() != 0) {
+			t.Errorf("cross-site %s: body %s after %d Service calls, want %s and none", target, rec.Body.String(), svc.calls(), codeCrossSite)
 		}
 		assertNoCORS(t, rec.Header())
+
+		// The same read from the Directory's own page, from the address bar
+		// and from a program without Fetch Metadata is served.
+		for name, headers := range map[string]map[string]string{
+			"same-origin": {"Sec-Fetch-Site": "same-origin", "Sec-Fetch-Mode": "cors", "Sec-Fetch-Dest": "empty"},
+			"typed":       {"Sec-Fetch-Site": "none", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "document"},
+			"a program":   {},
+			"old browser": {"Origin": "https://other.example"},
+		} {
+			rec := request{target: target, headers: headers}.send(h)
+			if strings.Contains(target, "no-such") {
+				if rec.Code != http.StatusNotFound {
+					t.Errorf("%s %s status = %d, want 404", name, target, rec.Code)
+				}
+			} else if rec.Code != http.StatusOK {
+				t.Errorf("%s %s status = %d, want 200", name, target, rec.Code)
+			}
+			assertNoCORS(t, rec.Header())
+		}
 	}
 }
 
 func TestPreflightIsNeverApproved(t *testing.T) {
-	for _, target := range []string{"/-/api/v1/links", "/-/api/v1/meta", "/-/healthz", "/-/", "/-/static/site.css", "/roadmap", "/"} {
+	for _, target := range []string{
+		"/-/api/v1/links", "/-/api/v1/links/12", "/-/api/v1/links/validate", "/-/api/v1/resolve?path=roadmap",
+		"/-/api/v1/meta", "/-/healthz", "/-/", "/-/static/site.css", "/roadmap", "/",
+	} {
 		t.Run(target, func(t *testing.T) {
 			svc := &fakeService{}
 			h := newTestServer(svc, func(o *Options) { o.UI = web.Handler(testVersion) }).Handler()
@@ -215,7 +261,7 @@ func TestPreflightIsNeverApproved(t *testing.T) {
 				t.Errorf("status = %d, want 405 or 403", rec.Code)
 			}
 			assertNoCORS(t, rec.Header())
-			if len(svc.resolvedPaths()) != 0 || len(svc.createdDrafts()) != 0 {
+			if svc.calls() != 0 {
 				t.Errorf("a preflight reached the service")
 			}
 		})

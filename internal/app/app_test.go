@@ -12,17 +12,39 @@ import (
 // localActor is the actor every test acts as unless it says otherwise.
 var localActor = Actor{UserID: 1, DisplayName: "Local user", Admin: true}
 
-// newApp returns an App over a fake store holding the given links.
-func newApp(t *testing.T, existing ...linkmodel.Link) (*App, *fakeStore) {
+// newApp returns an App over a new store (see spyStore) that already holds
+// the given links, saved by the local user, with the given options if any.
+func newApp(t testing.TB, existing ...linkmodel.Link) (*App, *spyStore) {
 	t.Helper()
-	st := newFakeStore(existing...)
-	a, err := New(context.Background(), st)
+	return newAppWith(t, Options{}, existing...)
+}
+
+func newAppWith(t testing.TB, opts Options, existing ...linkmodel.Link) (*App, *spyStore) {
+	t.Helper()
+	st := newSpyStore(t)
+	for _, l := range existing {
+		l.OwnerID = 1
+		if _, err := st.SQLite.CreateLink(context.Background(), l, 1); err != nil {
+			t.Fatalf("store.CreateLink(%s): %v", l.Name, err)
+		}
+	}
+	a, err := New(context.Background(), st, opts)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	st.calls.Store(0)
 	return a, st
 }
+
+// outcome is the part of a Decision that the L1 tests compare: what a request
+// log may record, and where a hit leads. A Decision itself is not comparable.
+type outcome struct {
+	Kind        DecisionKind
+	LinkName    string
+	Destination string
+}
+
+func brief(d Decision) outcome { return outcome{d.Kind, d.LinkName, d.Destination} }
 
 // draft builds a Draft from pattern, destination pairs.
 func draft(pairs ...string) Draft {
@@ -33,7 +55,7 @@ func draft(pairs ...string) Draft {
 	return d
 }
 
-func mustCreate(t *testing.T, a *App, d Draft) linkmodel.Link {
+func mustCreate(t testing.TB, a *App, d Draft) linkmodel.Link {
 	t.Helper()
 	l, err := a.CreateLink(context.Background(), localActor, d)
 	if err != nil {
@@ -53,22 +75,22 @@ func TestNewLoadsExistingLinks(t *testing.T) {
 
 	tests := []struct {
 		path string
-		want Decision
+		want outcome
 	}{
-		{"/roadmap", Decision{DecisionHit, "roadmap", "https://example.com/roadmap"}},
-		{"/gh", Decision{DecisionHit, "gh", "https://github.com/acme"}},
-		{"/gh/new", Decision{DecisionHit, "gh", "https://github.com/new"}},
-		{"/wiki", Decision{DecisionMissUnknown, "wiki", ""}},
+		{"/roadmap", outcome{DecisionHit, "roadmap", "https://example.com/roadmap"}},
+		{"/gh", outcome{DecisionHit, "gh", "https://github.com/acme"}},
+		{"/gh/new", outcome{DecisionHit, "gh", "https://github.com/new"}},
+		{"/wiki", outcome{DecisionMissUnknown, "wiki", ""}},
 	}
 	for _, tt := range tests {
-		if got := a.Resolve(tt.path); got != tt.want {
+		if got := brief(a.Resolve(tt.path)); got != tt.want {
 			t.Errorf("Resolve(%q) = %+v, want %+v", tt.path, got, tt.want)
 		}
 	}
 }
 
 func TestNewReportsStoreFailure(t *testing.T) {
-	st := newFakeStore()
+	st := newSpyStore(t)
 	st.listErr = errors.New("disk on fire")
 	a, err := New(context.Background(), st)
 	if a != nil || !errors.Is(err, st.listErr) {
@@ -87,11 +109,11 @@ func TestLocalActor(t *testing.T) {
 	}
 
 	// A non-admin role does not become an admin actor.
-	st2 := newFakeStore()
-	st2.local.Role = "user"
+	st2 := newSpyStore(t)
+	st2.localRole = "user"
 	a2, _ := New(context.Background(), st2)
 	if got, _ := a2.LocalActor(context.Background()); got.Admin {
-		t.Errorf("LocalActor for role %q has Admin set", st2.local.Role)
+		t.Errorf("LocalActor for role %q has Admin set", st2.localRole)
 	}
 
 	// The actor a real server uses can create a link.
@@ -169,7 +191,8 @@ func TestListLinks(t *testing.T) {
 func TestDecisionKindString(t *testing.T) {
 	want := map[DecisionKind]string{
 		DecisionHome: "home", DecisionHit: "hit", DecisionMissUnknown: "miss_unknown",
-		DecisionMissKnown: "miss_known", DecisionBadRequest: "bad_request", DecisionKind(99): "unknown",
+		DecisionMissKnown: "miss_known", DecisionBadRequest: "bad_request",
+		DecisionInternalError: "internal_error", DecisionKind(99): "unknown",
 	}
 	for kind, s := range want {
 		if got := kind.String(); got != s {

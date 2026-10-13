@@ -25,8 +25,9 @@ var ErrBadPath = errors.New("bad request path")
 // "+" is not a space in a path and is kept as is.
 //
 // The segments "." and ".." are returned like any other; no path cleaning is
-// done here. They never equal a literal, so matching simply does not find
-// them.
+// done here. They never equal a literal, and matching refuses them as the
+// value of a variable wherever they could act as path steps in the
+// destination (NFR-10).
 //
 // A malformed escape or a segment that is not valid UTF-8 after decoding
 // yields an error wrapping ErrBadPath. The error text never contains the path

@@ -96,7 +96,10 @@ func serve(ctx context.Context, args []string, getenv func(string) string, stder
 		}
 	}()
 
-	directory, err := app.New(ctx, st)
+	// A link may not point back into the Directory (PRD 5.4). What "the
+	// Directory" is, the HTTP layer knows: the same names its Host guard
+	// serves.
+	directory, err := app.New(ctx, st, app.Options{OwnHosts: httpd.OwnHosts(cfg.Addr, cfg.AllowHosts)})
 	if err != nil {
 		return fmt.Errorf("%s: %w", cfg.DBPath, err)
 	}

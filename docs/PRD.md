@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Date** | 2026-10-13 |
-| **Source** | [idea.md](../idea.md) |
+| **Source** | `idea.md`, the original idea note (no longer in the tree; it is in the repository's history) |
 
 Requirements that go beyond `idea.md` are marked **Added** in sections 6 and 7 and summarized in Appendix A.
 

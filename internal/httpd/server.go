@@ -22,6 +22,14 @@ import (
 type Service interface {
 	Resolve(escapedPath string) app.Decision
 	CreateLink(ctx context.Context, actor app.Actor, d app.Draft) (linkmodel.Link, error)
+	GetLink(ctx context.Context, actor app.Actor, id int64) (linkmodel.Link, error)
+	// UpdateLink replaces the link's description and routes. version is the
+	// one the caller last read; a stale one is refused.
+	UpdateLink(ctx context.Context, actor app.Actor, id int64, d app.Draft, version int) (linkmodel.Link, error)
+	// DeleteLink removes the link. version 0 means "whatever it is now".
+	DeleteLink(ctx context.Context, actor app.Actor, id int64, version int) error
+	// Validate checks a draft by the rules of saving and writes nothing.
+	Validate(ctx context.Context, actor app.Actor, req app.ValidateRequest) app.ValidateResult
 	ListLinks(ctx context.Context, actor app.Actor) ([]linkmodel.Link, error)
 	Owner(ctx context.Context, l linkmodel.Link) string
 	// CanEdit is the permission rule behind a link's "canEdit". It is asked
@@ -141,8 +149,9 @@ func (s *Server) redirectHome(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, internalPrefix)
 }
 
-// serveInternal handles everything under "/-/": write guards first, then the
-// API and health check, then the UI.
+// serveInternal handles everything under "/-/": the cross-site guards first
+// (for reads of the API, and for every write), then the API and health check,
+// then the UI.
 func (s *Server) serveInternal(w http.ResponseWriter, r *http.Request, path string, entry *logEntry) {
 	// The inner ServeMux would answer an unclean path with a redirect to the
 	// cleaned one, and "/-/../x" cleans to the go link "/x". Nothing under
@@ -151,7 +160,23 @@ func (s *Server) serveInternal(w http.ResponseWriter, r *http.Request, path stri
 		writeError(w, r, http.StatusNotFound, codeNotFound, "There is nothing at this address.", nil)
 		return
 	}
+	// A read of the API made by a page of another site, as a fetch, an image
+	// or a frame, is refused like the same kind of request for a go link
+	// (serveResolver). Such a page could never see the answer, since no CORS
+	// header is sent; but the request alone makes the server do the work, and
+	// for the resolve endpoint that is as much as a go link costs, without
+	// the user seeing anything happen. A go link opened in a tab from another
+	// site, and everything without Fetch Metadata headers (curl, the command
+	// line, other servers), is served as before.
+	if isRead(r.Method) && strings.HasPrefix(path, apiPrefix) && isCrossSiteSubresource(r) {
+		writeError(w, r, http.StatusForbidden, codeCrossSite,
+			"This request came from another site, so it was refused.", nil)
+		return
+	}
 	if !isSafeMethod(r.Method) {
+		// Every method that is not a read is guarded, known to the router or
+		// not: POST, PATCH and DELETE alike, and PUT although nothing accepts
+		// it.
 		if rejected := checkWrite(r); rejected != nil {
 			writeError(w, r, rejected.status, rejected.code, rejected.message, nil)
 			return

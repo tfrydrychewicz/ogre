@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -39,9 +40,85 @@ type fakeService struct {
 	owner     string
 	canEditFn func(actor app.Actor, l linkmodel.Link) bool
 
-	resolved []string
-	created  []app.Draft
-	actors   []app.Actor
+	getFn      func(id int64) (linkmodel.Link, error)
+	updateFn   func(id int64, d app.Draft, version int) (linkmodel.Link, error)
+	deleteFn   func(id int64, version int) error
+	validateFn func(req app.ValidateRequest) app.ValidateResult
+
+	resolved  []string
+	created   []app.Draft
+	actors    []app.Actor
+	got       []int64
+	updated   []updateCall
+	deleted   []deleteCall
+	validated []app.ValidateRequest
+}
+
+type updateCall struct {
+	id      int64
+	draft   app.Draft
+	version int
+}
+
+type deleteCall struct {
+	id      int64
+	version int
+}
+
+// calls counts every call that reads or changes links, for asserting that a
+// refused request never reached the Service.
+func (f *fakeService) calls() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.resolved) + len(f.created) + len(f.got) + len(f.updated) + len(f.deleted) + len(f.validated)
+}
+
+func (f *fakeService) GetLink(_ context.Context, actor app.Actor, id int64) (linkmodel.Link, error) {
+	f.mu.Lock()
+	f.got = append(f.got, id)
+	f.actors = append(f.actors, actor)
+	fn := f.getFn
+	f.mu.Unlock()
+	if fn == nil {
+		return sampleLink(), nil
+	}
+	return fn(id)
+}
+
+func (f *fakeService) UpdateLink(_ context.Context, actor app.Actor, id int64, d app.Draft, version int) (linkmodel.Link, error) {
+	f.mu.Lock()
+	f.updated = append(f.updated, updateCall{id, d, version})
+	f.actors = append(f.actors, actor)
+	fn := f.updateFn
+	f.mu.Unlock()
+	if fn == nil {
+		return sampleLink(), nil
+	}
+	return fn(id, d, version)
+}
+
+func (f *fakeService) DeleteLink(_ context.Context, actor app.Actor, id int64, version int) error {
+	f.mu.Lock()
+	f.deleted = append(f.deleted, deleteCall{id, version})
+	f.actors = append(f.actors, actor)
+	fn := f.deleteFn
+	f.mu.Unlock()
+	if fn == nil {
+		return nil
+	}
+	return fn(id, version)
+}
+
+func (f *fakeService) Validate(_ context.Context, actor app.Actor, req app.ValidateRequest) app.ValidateResult {
+	f.mu.Lock()
+	f.validated = append(f.validated, req)
+	f.actors = append(f.actors, actor)
+	fn := f.validateFn
+	f.mu.Unlock()
+	if fn == nil {
+		return app.ValidateResult{Valid: true}
+	}
+	return fn(req)
 }
 
 func (f *fakeService) Resolve(escapedPath string) app.Decision {
@@ -189,8 +266,12 @@ func get(h http.Handler, target string) *httptest.ResponseRecorder {
 }
 
 func postJSON(h http.Handler, target, body string) *httptest.ResponseRecorder {
+	return sendJSON(h, http.MethodPost, target, body)
+}
+
+func sendJSON(h http.Handler, method, target, body string) *httptest.ResponseRecorder {
 	return request{
-		method:  http.MethodPost,
+		method:  method,
 		target:  target,
 		headers: map[string]string{"Content-Type": "application/json"},
 		body:    body,
@@ -207,6 +288,32 @@ func decodeJSON(t *testing.T, doc string) any {
 		t.Fatalf("not JSON: %v\n%s", err, doc)
 	}
 	return v
+}
+
+// assertJSON fails unless the body is exactly the wanted document: the same
+// keys, no more and no fewer, with the same values.
+func assertJSON(t *testing.T, rec *httptest.ResponseRecorder, want string) {
+	t.Helper()
+	if got := rec.Header().Get("Content-Type"); got != "application/json" {
+		t.Errorf("Content-Type = %q, want application/json", got)
+	}
+	if got, want := decodeJSON(t, rec.Body.String()), decodeJSON(t, want); !reflect.DeepEqual(got, want) {
+		t.Errorf("body = %s\nwant %s", rec.Body.String(), want)
+	}
+}
+
+// errorDetails returns error.details of an API error body as a document.
+func errorDetails(t *testing.T, rec *httptest.ResponseRecorder) string {
+	t.Helper()
+	var doc struct {
+		Error struct {
+			Details json.RawMessage `json:"details"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &doc); err != nil {
+		t.Fatalf("not an API error: %v\n%s", err, rec.Body.String())
+	}
+	return string(doc.Error.Details)
 }
 
 // errorCode extracts error.code from an API error body and checks the shape:

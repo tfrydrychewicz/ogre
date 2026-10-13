@@ -1,0 +1,741 @@
+{
+  "format": "ogre-spec",
+  "version": 1,
+  "source": "docs/PRD.md section 5.7 (worked examples). The schema is described in README.txt.",
+  "links": [
+    {
+      "name": "reports",
+      "description": "Daily reports",
+      "routes": [
+        {
+          "pattern": "reports/{month:regex(^(0?[1-9]|1[0-2])$)}/{day:int}",
+          "destination": "https://reports.example.com/daily?month={month}&day={day}"
+        }
+      ]
+    },
+    {
+      "name": "gh",
+      "description": "GitHub shortcuts",
+      "routes": [
+        {
+          "pattern": "gh",
+          "destination": "https://github.com/acme"
+        },
+        {
+          "pattern": "gh/new",
+          "destination": "https://github.com/organizations/acme/repositories/new"
+        },
+        {
+          "pattern": "gh/{repo}",
+          "destination": "https://github.com/acme/{repo}"
+        },
+        {
+          "pattern": "gh/{repo}/pr/{num:int}",
+          "destination": "https://github.com/acme/{repo}/pull/{num}"
+        }
+      ]
+    },
+    {
+      "name": "jira",
+      "description": "Jira issues",
+      "routes": [
+        {
+          "pattern": "jira/{key:regex([A-Z]+-[0-9]+)}",
+          "destination": "https://acme.atlassian.net/browse/{key}"
+        }
+      ]
+    },
+    {
+      "name": "search",
+      "description": "Search",
+      "routes": [
+        {
+          "pattern": "search/{q}",
+          "destination": "https://search.example.com/?q={q}"
+        }
+      ]
+    },
+    {
+      "name": "on-call",
+      "description": "On-call schedule",
+      "routes": [
+        {
+          "pattern": "on-call",
+          "destination": "https://pager.example.com/schedule"
+        }
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "id": "1",
+      "request": "go/reports/10/13",
+      "path": "reports/10/13",
+      "rule": "Both values pass their types",
+      "expect": {
+        "kind": "hit",
+        "link": "reports",
+        "route": "reports/{month:regex(^(0?[1-9]|1[0-2])$)}/{day:int}",
+        "values": {
+          "month": "10",
+          "day": "13"
+        },
+        "destination": "https://reports.example.com/daily?month=10&day=13"
+      }
+    },
+    {
+      "id": "2",
+      "request": "go/Reports/10/13/",
+      "path": "Reports/10/13/",
+      "rule": "Literals ignore case; a trailing slash is ignored",
+      "expect": {
+        "kind": "hit",
+        "link": "reports",
+        "route": "reports/{month:regex(^(0?[1-9]|1[0-2])$)}/{day:int}",
+        "values": {
+          "month": "10",
+          "day": "13"
+        },
+        "destination": "https://reports.example.com/daily?month=10&day=13"
+      }
+    },
+    {
+      "id": "3",
+      "request": "go/reports/13/01",
+      "path": "reports/13/01",
+      "rule": "A value that fails its type is a miss",
+      "expect": {
+        "kind": "miss_known",
+        "link": "reports",
+        "reasons": [
+          {
+            "route": "reports/{month:regex(^(0?[1-9]|1[0-2])$)}/{day:int}",
+            "code": "value_rejected",
+            "variable": "month",
+            "value": "13"
+          }
+        ]
+      }
+    },
+    {
+      "id": "4",
+      "request": "go/reports/10/x",
+      "path": "reports/10/x",
+      "rule": "A value that fails its type is a miss",
+      "expect": {
+        "kind": "miss_known",
+        "link": "reports",
+        "reasons": [
+          {
+            "route": "reports/{month:regex(^(0?[1-9]|1[0-2])$)}/{day:int}",
+            "code": "value_rejected",
+            "variable": "day",
+            "value": "x"
+          }
+        ]
+      }
+    },
+    {
+      "id": "5",
+      "request": "go/reports/10",
+      "path": "reports/10",
+      "rule": "The number of segments must match",
+      "expect": {
+        "kind": "miss_known",
+        "link": "reports",
+        "reasons": [
+          {
+            "route": "reports/{month:regex(^(0?[1-9]|1[0-2])$)}/{day:int}",
+            "code": "segment_count"
+          }
+        ]
+      }
+    },
+    {
+      "id": "6",
+      "request": "go/reprots/10/13",
+      "path": "reprots/10/13",
+      "rule": "One edit (two swapped letters); values carried over",
+      "expect": {
+        "kind": "miss_unknown",
+        "requestedName": "reprots",
+        "suggestions": [
+          {
+            "name": "reports",
+            "path": "reports/10/13",
+            "edits": 1,
+            "resolves": true,
+            "description": "Daily reports",
+            "destination": "https://reports.example.com/daily?month=10&day=13"
+          }
+        ]
+      }
+    },
+    {
+      "id": "7",
+      "request": "go/gh",
+      "path": "gh",
+      "rule": "A link can have a route without variables",
+      "expect": {
+        "kind": "hit",
+        "link": "gh",
+        "route": "gh",
+        "values": {},
+        "destination": "https://github.com/acme"
+      }
+    },
+    {
+      "id": "8",
+      "request": "go/gh/api-server",
+      "path": "gh/api-server",
+      "rule": "Text variable",
+      "expect": {
+        "kind": "hit",
+        "link": "gh",
+        "route": "gh/{repo}",
+        "values": {
+          "repo": "api-server"
+        },
+        "destination": "https://github.com/acme/api-server"
+      }
+    },
+    {
+      "id": "9",
+      "request": "go/gh/new",
+      "path": "gh/new",
+      "rule": "A literal beats a variable",
+      "expect": {
+        "kind": "hit",
+        "link": "gh",
+        "route": "gh/new",
+        "values": {},
+        "destination": "https://github.com/organizations/acme/repositories/new"
+      }
+    },
+    {
+      "id": "10",
+      "request": "go/gh/api-server/pr/42",
+      "path": "gh/api-server/pr/42",
+      "rule": "Routes of different lengths coexist",
+      "expect": {
+        "kind": "hit",
+        "link": "gh",
+        "route": "gh/{repo}/pr/{num:int}",
+        "values": {
+          "repo": "api-server",
+          "num": "42"
+        },
+        "destination": "https://github.com/acme/api-server/pull/42"
+      }
+    },
+    {
+      "id": "11",
+      "request": "go/gh/api-server/pr/latest",
+      "path": "gh/api-server/pr/latest",
+      "rule": "Type failure in a longer route",
+      "expect": {
+        "kind": "miss_known",
+        "link": "gh",
+        "reasons": [
+          {
+            "route": "gh",
+            "code": "segment_count"
+          },
+          {
+            "route": "gh/new",
+            "code": "segment_count"
+          },
+          {
+            "route": "gh/{repo}",
+            "code": "segment_count"
+          },
+          {
+            "route": "gh/{repo}/pr/{num:int}",
+            "code": "value_rejected",
+            "variable": "num",
+            "value": "latest"
+          }
+        ]
+      }
+    },
+    {
+      "id": "12",
+      "request": "go/jira/OPS-1234",
+      "path": "jira/OPS-1234",
+      "rule": "A regex must match the whole value",
+      "expect": {
+        "kind": "hit",
+        "link": "jira",
+        "route": "jira/{key:regex([A-Z]+-[0-9]+)}",
+        "values": {
+          "key": "OPS-1234"
+        },
+        "destination": "https://acme.atlassian.net/browse/OPS-1234"
+      }
+    },
+    {
+      "id": "13",
+      "request": "go/jira/ops-1234",
+      "path": "jira/ops-1234",
+      "rule": "Values are case-sensitive and never changed",
+      "expect": {
+        "kind": "miss_known",
+        "link": "jira",
+        "reasons": [
+          {
+            "route": "jira/{key:regex([A-Z]+-[0-9]+)}",
+            "code": "value_rejected",
+            "variable": "key",
+            "value": "ops-1234"
+          }
+        ]
+      }
+    },
+    {
+      "id": "14",
+      "request": "go/search/a%20b%26c",
+      "path": "search/a%20b%26c",
+      "rule": "The value is decoded to \"a b&c\" and re-encoded; it cannot add a parameter",
+      "expect": {
+        "kind": "hit",
+        "link": "search",
+        "route": "search/{q}",
+        "values": {
+          "q": "a b&c"
+        },
+        "destination": "https://search.example.com/?q=a%20b%26c"
+      }
+    },
+    {
+      "id": "15",
+      "request": "go/On-Call",
+      "path": "On-Call",
+      "rule": "Names ignore case",
+      "expect": {
+        "kind": "hit",
+        "link": "on-call",
+        "route": "on-call",
+        "values": {},
+        "destination": "https://pager.example.com/schedule"
+      }
+    },
+    {
+      "id": "15a.1",
+      "request": "go/oncall",
+      "path": "oncall",
+      "rule": "\"-\" and \"_\" are part of the name; one edit away",
+      "expect": {
+        "kind": "miss_unknown",
+        "requestedName": "oncall",
+        "suggestions": [
+          {
+            "name": "on-call",
+            "path": "on-call",
+            "edits": 1,
+            "resolves": true,
+            "description": "On-call schedule",
+            "destination": "https://pager.example.com/schedule"
+          }
+        ]
+      }
+    },
+    {
+      "id": "15a.2",
+      "request": "go/on_call",
+      "path": "on_call",
+      "rule": "\"-\" and \"_\" are part of the name; one edit away",
+      "expect": {
+        "kind": "miss_unknown",
+        "requestedName": "on_call",
+        "suggestions": [
+          {
+            "name": "on-call",
+            "path": "on-call",
+            "edits": 1,
+            "resolves": true,
+            "description": "On-call schedule",
+            "destination": "https://pager.example.com/schedule"
+          }
+        ]
+      }
+    },
+    {
+      "id": "16",
+      "request": "go/xyzzy",
+      "path": "xyzzy",
+      "rule": "Nothing is within the allowed distance; offer to create go/xyzzy",
+      "expect": {
+        "kind": "miss_unknown",
+        "requestedName": "xyzzy",
+        "suggestions": []
+      }
+    },
+    {
+      "id": "17",
+      "request": "go/",
+      "path": "",
+      "rule": "Empty path",
+      "expect": {
+        "kind": "home"
+      }
+    },
+    {
+      "id": "18",
+      "request": "go/gh/api-server?tab=readme",
+      "path": "gh/api-server?tab=readme",
+      "rule": "Query passthrough (P2, RES-8)",
+      "pending": "RES-8",
+      "untilThen": {
+        "kind": "hit",
+        "link": "gh",
+        "route": "gh/{repo}",
+        "values": {
+          "repo": "api-server"
+        },
+        "destination": "https://github.com/acme/api-server"
+      },
+      "expect": {
+        "kind": "hit",
+        "link": "gh",
+        "route": "gh/{repo}",
+        "values": {
+          "repo": "api-server"
+        },
+        "destination": "https://github.com/acme/api-server?tab=readme"
+      }
+    }
+  ],
+  "saves": [
+    {
+      "id": "S1",
+      "attempt": "Add route gh/{name} to gh",
+      "outcome": "Rejected: same shape as gh/{repo}",
+      "needs": "linkmodel",
+      "action": "update",
+      "link": "gh",
+      "actor": "owner",
+      "draft": {
+        "routes": [
+          {
+            "pattern": "gh",
+            "destination": "https://github.com/acme"
+          },
+          {
+            "pattern": "gh/new",
+            "destination": "https://github.com/organizations/acme/repositories/new"
+          },
+          {
+            "pattern": "gh/{repo}",
+            "destination": "https://github.com/acme/{repo}"
+          },
+          {
+            "pattern": "gh/{repo}/pr/{num:int}",
+            "destination": "https://github.com/acme/{repo}/pull/{num}"
+          },
+          {
+            "pattern": "gh/{name}",
+            "destination": "https://github.com/acme/{name}"
+          }
+        ]
+      },
+      "expect": {
+        "saved": false,
+        "error": "validation",
+        "problems": [
+          {
+            "route": 4,
+            "field": "pattern",
+            "code": "pattern.same_shape",
+            "mentions": "gh/{repo}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S2",
+      "attempt": "Add route gh/{id:int} to gh",
+      "outcome": "Saved: numeric values now go to this route, all others still go to gh/{repo}",
+      "needs": "linkmodel",
+      "action": "update",
+      "link": "gh",
+      "actor": "owner",
+      "draft": {
+        "routes": [
+          {
+            "pattern": "gh",
+            "destination": "https://github.com/acme"
+          },
+          {
+            "pattern": "gh/new",
+            "destination": "https://github.com/organizations/acme/repositories/new"
+          },
+          {
+            "pattern": "gh/{repo}",
+            "destination": "https://github.com/acme/{repo}"
+          },
+          {
+            "pattern": "gh/{repo}/pr/{num:int}",
+            "destination": "https://github.com/acme/{repo}/pull/{num}"
+          },
+          {
+            "pattern": "gh/{id:int}",
+            "destination": "https://github.com/acme/issues/{id}"
+          }
+        ]
+      },
+      "expect": {
+        "saved": true,
+        "name": "gh",
+        "then": [
+          {
+            "path": "gh/123",
+            "expect": {
+              "kind": "hit",
+              "link": "gh",
+              "route": "gh/{id:int}",
+              "values": {
+                "id": "123"
+              },
+              "destination": "https://github.com/acme/issues/123"
+            }
+          },
+          {
+            "path": "gh/api-server",
+            "expect": {
+              "kind": "hit",
+              "link": "gh",
+              "route": "gh/{repo}",
+              "values": {
+                "repo": "api-server"
+              },
+              "destination": "https://github.com/acme/api-server"
+            }
+          },
+          {
+            "path": "gh/new",
+            "expect": {
+              "kind": "hit",
+              "link": "gh",
+              "route": "gh/new",
+              "values": {},
+              "destination": "https://github.com/organizations/acme/repositories/new"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "S3",
+      "attempt": "Create a link named On-Call",
+      "outcome": "Rejected: the name is taken by on-call",
+      "needs": "app",
+      "action": "create",
+      "actor": "owner",
+      "draft": {
+        "routes": [
+          {
+            "pattern": "On-Call",
+            "destination": "https://example.com/another-schedule"
+          }
+        ]
+      },
+      "expect": {
+        "saved": false,
+        "error": "link.name_taken",
+        "name": "on-call",
+        "existing": "on-call"
+      }
+    },
+    {
+      "id": "S4",
+      "attempt": "Create a link named oncall",
+      "outcome": "Saved: a different name from on-call",
+      "needs": "app",
+      "action": "create",
+      "actor": "owner",
+      "draft": {
+        "routes": [
+          {
+            "pattern": "oncall",
+            "destination": "https://example.com/another-schedule"
+          }
+        ]
+      },
+      "expect": {
+        "saved": true,
+        "name": "oncall",
+        "then": [
+          {
+            "path": "oncall",
+            "expect": {
+              "kind": "hit",
+              "link": "oncall",
+              "route": "oncall",
+              "values": {},
+              "destination": "https://example.com/another-schedule"
+            }
+          },
+          {
+            "path": "on-call",
+            "expect": {
+              "kind": "hit",
+              "link": "on-call",
+              "route": "on-call",
+              "values": {},
+              "destination": "https://pager.example.com/schedule"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "S5",
+      "attempt": "A user who cannot edit gh adds gh/issues",
+      "outcome": "Rejected: the message names the owner and links to go/gh",
+      "needs": "app",
+      "action": "update",
+      "link": "gh",
+      "actor": "other",
+      "draft": {
+        "routes": [
+          {
+            "pattern": "gh",
+            "destination": "https://github.com/acme"
+          },
+          {
+            "pattern": "gh/new",
+            "destination": "https://github.com/organizations/acme/repositories/new"
+          },
+          {
+            "pattern": "gh/{repo}",
+            "destination": "https://github.com/acme/{repo}"
+          },
+          {
+            "pattern": "gh/{repo}/pr/{num:int}",
+            "destination": "https://github.com/acme/{repo}/pull/{num}"
+          },
+          {
+            "pattern": "gh/issues",
+            "destination": "https://github.com/acme/issues"
+          }
+        ]
+      },
+      "expect": {
+        "saved": false,
+        "error": "link.forbidden",
+        "name": "gh",
+        "namesOwner": true,
+        "linksTo": "gh"
+      }
+    },
+    {
+      "id": "S6",
+      "attempt": "Destination https://{team}.example.com/",
+      "outcome": "Rejected: variable in the host",
+      "needs": "linkmodel",
+      "action": "create",
+      "actor": "owner",
+      "draft": {
+        "routes": [
+          {
+            "pattern": "wiki/{team}",
+            "destination": "https://{team}.example.com/"
+          }
+        ]
+      },
+      "expect": {
+        "saved": false,
+        "error": "validation",
+        "problems": [
+          {
+            "route": 0,
+            "field": "destination",
+            "code": "destination.placeholder_in_host"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S7",
+      "attempt": "Destination https://example.com/{year} on pattern reports/{month}",
+      "outcome": "Rejected: {year} is not declared",
+      "needs": "linkmodel",
+      "action": "create",
+      "actor": "owner",
+      "draft": {
+        "routes": [
+          {
+            "pattern": "reports/{month}",
+            "destination": "https://example.com/{year}"
+          }
+        ]
+      },
+      "expect": {
+        "saved": false,
+        "error": "validation",
+        "problems": [
+          {
+            "route": 0,
+            "field": "destination",
+            "code": "destination.undeclared_variable",
+            "mentions": "{year}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S8",
+      "attempt": "Destination javascript:alert(1)",
+      "outcome": "Rejected: scheme not allowed",
+      "needs": "linkmodel",
+      "action": "create",
+      "actor": "owner",
+      "draft": {
+        "routes": [
+          {
+            "pattern": "js",
+            "destination": "javascript:alert(1)"
+          }
+        ]
+      },
+      "expect": {
+        "saved": false,
+        "error": "validation",
+        "problems": [
+          {
+            "route": 0,
+            "field": "destination",
+            "code": "destination.scheme"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S9",
+      "attempt": "Destination https://example.com@evil.example/",
+      "outcome": "Rejected: credentials are not allowed",
+      "needs": "linkmodel",
+      "action": "create",
+      "actor": "owner",
+      "draft": {
+        "routes": [
+          {
+            "pattern": "evil",
+            "destination": "https://example.com@evil.example/"
+          }
+        ]
+      },
+      "expect": {
+        "saved": false,
+        "error": "validation",
+        "problems": [
+          {
+            "route": 0,
+            "field": "destination",
+            "code": "destination.credentials"
+          }
+        ]
+      }
+    }
+  ]
+}

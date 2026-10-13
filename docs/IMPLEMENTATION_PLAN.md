@@ -514,6 +514,17 @@ Each milestone lists what it **completes** (requirements fully met at its end) a
 
 **You can now** create links with typed variables and several routes through the API, and get the right redirect, miss kind, reasons, and suggestions for any path from `GET /-/api/v1/resolve`.
 
+**Status, 2026-10-13: built and verified.** An independent verification confirmed every "done when" item: the PRD 5.7 fixtures pass through the Go API and through HTTP (request 18 stays pending RES-8), six fuzz targets ran clean for 5 minutes each, and at 100,000 links a hit takes 0.4 to 3.4 µs and an unknown-name miss 0.6 to 9 ms. The gate now has six fuzz targets and 16 end-to-end tests. Three reviewers raised 26 findings, two of them high (the Directory's own address was not recognized in every spelling, and a deliberately built regex link could take seconds per request); all high and medium ones are fixed. Decisions taken where the PRD was silent:
+
+- A value checked by a regex is at most 256 bytes, and compiled expressions are bounded (1,000 instructions each, 4,000 per link); the costliest link that can be saved takes about 10 ms per request.
+- `DELETE` is exempt from the JSON content-type requirement, since it has no body; the origin checks still apply.
+- `PATCH` replaces routes and variable metadata as a whole.
+- The resolve endpoint answers a malformed path with `200` and kind `bad_request`.
+- The unused-variable warning appears only when the destination is otherwise valid.
+- A variable's example that its type rejects is a warning for now; VAR-6 makes it an error in L5.8.
+- A link saved before the credentials rule existed would still resolve; validation runs on save only.
+- Known gap: a destination that spells the Directory's own host in fullwidth Unicode letters is not recognized as the Directory.
+
 **Completes:** VAR-1, RES-1, RES-4, RES-7, NFR-8, NFR-9, NFR-10, NFR-17, NFR-22. **Starts:** DIR-2, RES-2, MISS-1, MISS-2.
 
 - **L2.1 Fixtures first.** Transcribe PRD 5.7 into `spec.json`: the links, every request with its expected outcome, and every save attempt. Mark request 18 as pending RES-8. Write the test that replays them; it fails until L2.9.

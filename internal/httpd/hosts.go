@@ -3,6 +3,7 @@ package httpd
 import (
 	"net"
 	"net/netip"
+	"slices"
 	"strings"
 )
 
@@ -55,6 +56,36 @@ func newHostList(addr string, extra []string) hostList {
 		l.allowed[hostPort{h, p}] = true
 	}
 	return l
+}
+
+// OwnHosts returns every "host:port" under which a Directory listening on
+// addr with the given --allow-host entries is reached: exactly the names the
+// Host allow-list accepts, plus the listen address itself. The result is
+// sorted.
+//
+// It exists for the rule that a go link may not point back into the Directory
+// (PRD 5.4). That rule and the Host guard must agree on what "the Directory"
+// is, so both are derived from the one list here: a destination is refused
+// when a request to it would be answered by this server.
+func OwnHosts(addr string, allowHosts []string) []string {
+	hosts := map[string]bool{}
+	for hp := range newHostList(addr, allowHosts).allowed {
+		hosts[net.JoinHostPort(hp.host, hp.port)] = true
+	}
+	// A non-loopback listen address is not in the allow-list (it needs
+	// --allow-host to be served), but a destination there still leads to
+	// this process. A wildcard address names no host and is left out.
+	if host, port := splitHostPort(strings.ToLower(addr)); host != "" && port != "" {
+		if ip, err := netip.ParseAddr(host); err != nil || !ip.IsUnspecified() {
+			hosts[net.JoinHostPort(host, port)] = true
+		}
+	}
+	out := make([]string, 0, len(hosts))
+	for h := range hosts {
+		out = append(out, h)
+	}
+	slices.Sort(out)
+	return out
 }
 
 // allows reports whether a request's Host header names this Directory. The
