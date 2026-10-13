@@ -8,7 +8,7 @@
 | **Chromium used by automation** | 156.0.8078.4, Playwright's bundled "Google Chrome for Testing", headless, field trials off |
 | **OS** | macOS 26.5 (build 25F71), arm64 |
 
-This is the record that task L0.2 of [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) asks for. The checks are those of the plan's Appendix B. The code that produced the results is in `spike/`; the raw results are kept in `docs/spike-results/`: `automated.json` and `omnibox-raw.json` (automation) and `manual.json` (the run by hand), with local file paths replaced by `<repo>`, `<tmp>`, and `~`.
+This is the record that task L0.2 of [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) asks for. The checks are those of the plan's Appendix B. The code that produced the results lived in `spike/`, which was deleted when L1 started, as planned; it is in the repository's history at the tag `l0-spike`, and the `spike/` paths and commands below refer to that tag. The raw results are kept in `docs/spike-results/`: `automated.json` and `omnibox-raw.json` (automation) and `manual.json` (the run by hand), with local file paths replaced by `<repo>`, `<tmp>`, and `~`, the two path-derived extension ids replaced by `<spike-extension-id>` and `<spike-extension-omnibox-id>`, and two location-specific Google suggestions replaced by a placeholder.
 
 ## What this establishes
 
@@ -216,7 +216,7 @@ Check 11 was the result most likely to differ on Chrome stable. It did not: the 
 |---|---|
 | Stack | The owner confirmed Go on 2026-10-13, after comparing it with Node.js. |
 | Name matching (Q5) | The owner decided on 2026-10-13: names ignore case only; `-` and `_` are significant. |
-| Working name `godir` | Used throughout the spike. Still a placeholder (Q8). |
+| Working name `godir` | Used throughout the spike. Since decided for the extension, which is called Ogre; `godir` remains the working name of the server (Q8). |
 | Port 4655 | Used by every run; free on the development machine each time. |
 | Address-bar keyword `go/` for L6.8 | Confirmed: check 15 passes by proxy, and by hand for one typed link in a profile that already knew the host (step K). Keyword mode itself (Tab or Space after `go/`) was not tried by hand. |
 
@@ -265,7 +265,7 @@ npx playwright test                    # 19 tests, about two minutes
 npx playwright test -g "check 12:"     # one check
 ```
 
-Results are merged by check id into `spike/results/automated.json`; delete that file first for a clean record. Each check carries its own time and Chromium version. The command line stored in the file shows a temporary profile path from the session that made the run.
+The harness is not in the current tree; check out the tag first with `git checkout l0-spike`. Results are merged by check id into `spike/results/automated.json` (the copies published in this repository are in `docs/spike-results/`); delete that file first for a clean record. Each check carries its own time and Chromium version. The command line stored in the file shows a temporary profile path from the session that made the run.
 
 After changing `spike/extension/`, regenerate the keyword variant with `node spike/sync-variant.mjs`. The stub is rebuilt by the harness; to build it by hand, run `go build -o bin/stub stub/main.go` in `spike/`.
 

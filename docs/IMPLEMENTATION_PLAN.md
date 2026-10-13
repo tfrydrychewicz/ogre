@@ -53,7 +53,7 @@ This plan replaces the sequencing in PRD section 11. The PRD's M1 is L1–L4 her
 | Q4, stack | Decided: Go, SQLite, JavaScript for the browser side — the PRD's recommendation, refined in 2.2. The owner confirmed Go on 2026-10-13 (L0.4), after comparing it with Node.js | Sections 3 and 4 and the task wording change; the milestones and their order do not |
 | Q5, name matching | Decided by the owner on 2026-10-13: names ignore case only. `-` and `_` are part of the name, so `on-call`, `on_call`, and `oncall` are different links | — |
 
-Q1, Q2, Q3, and Q6 are only needed by the cloud track and stay open until then. Q8 (the product's name) is handled with a placeholder.
+Q1, Q2, Q3, and Q6 are only needed by the cloud track and stay open until then. Q8 is settled for the extension, which is called Ogre; the server's name is still a placeholder (section 2.2).
 
 ### 2.2 Technical choices
 
@@ -67,7 +67,7 @@ Q1, Q2, Q3, and Q6 are only needed by the cloud track and stay open until then. 
 | Types in JavaScript | JSDoc annotations checked by the TypeScript compiler (`tsc --noEmit`) | Type safety without compiling anything |
 | Tests | Go's `testing` package, including fuzzing and benchmarks; `node --test` for extension logic; Playwright for end-to-end tests with the extension loaded | Section 4 |
 | Logging | `log/slog` | Structured logs from the standard library |
-| Working name | `godir`: the binary, Go module, data directory, and extension name | A placeholder until Q8; section 3.1 lists every place it appears |
+| Names | The extension is called **Ogre** (decided by the owner, 2026-10-13). The server keeps the working name `godir`: the binary, the repository `github.com/tfrydrychewicz/godir`, the Go module, and the data directory | Q8 is settled for the extension only; section 3.1 lists every place the server's name appears |
 | Default address | Listens on `127.0.0.1:4655` and `[::1]:4655`; the Directory URL is `http://localhost:4655` | DEP-1 and DEP-3. 4655 spells GOLK on a phone keypad, and nothing uses it on the development machine |
 
 The product has one runtime dependency (the SQLite driver) until C1. Node.js is needed only to run checks and end-to-end tests, never to build or run the product.
@@ -90,6 +90,8 @@ The product has one runtime dependency (the SQLite driver) until C1. Node.js is 
 ## 3. Technical design
 
 ### 3.1 Repository layout
+
+This is the layout at the local-release gate. At L1 these parts do not exist yet: the `service`, `export`, `import`, `backup`, `restore`, `seed`, and `doctor` commands (L5); `internal/linkmodel/testdata/spec.json` (L2.1); `internal/osservice/` (L5.1); `docs/manual-tests.md` (L4.8); `docs/perf.md` (L4.7); and the Makefile's `install` target (L5.2). `docs/` also holds `spike-results/`, the raw data of L0. Of the extension, only `manifest.json`, `background.js`, and `lib/config.js` exist at L1.
 
 ```text
 .
@@ -115,14 +117,15 @@ The product has one runtime dependency (the SQLite driver) until C1. Node.js is 
 └── README.md
 ```
 
-Renaming the product (Q8) touches: the Go module path, `cmd/godir`, the binary name, the data-directory name, the `GODIR_` environment prefix, the service label, the `product` field of the `meta` endpoint, the extension's `name`, and the `format` field of export files.
+Renaming the server (the rest of Q8) touches: the repository and Go module path, `cmd/godir`, the binary name, the data-directory name, the `GODIR_` environment prefix, the service label, the `product` field of the `meta` endpoint, and the `format` field of export files. It also touches the database file name `godir.db`, `bin/godir` in the `Makefile` and the end-to-end harness, the `name` in `package.json`, the placeholder page, and the start and stop log lines. The extension's name, Ogre, lives in `extension/manifest.json`, the `[ogre]` log prefix of `extension/background.js`, the tests that assert it (`extension/manifest.test.js`, `e2e/extension.spec.mjs`), and the two READMEs.
 
 ### 3.2 Components and their boundaries
 
 - **`linkmodel` is pure.** It imports nothing else from the project and performs no I/O. Everything about PRD section 5 lives there and nowhere else (NFR-22). Browser code never parses a pattern; it shows what the API returns.
-- **`app` is the only package that writes.** Every function takes an `Actor` — who is acting. Local mode supplies the built-in admin user; C1 swaps in the signed-in user without touching the use cases.
+- **`app` is the only package that writes.** Every use case that reads or changes data on someone's behalf takes an `Actor` — who is acting; resolving does not. Local mode supplies the built-in admin user; C1 swaps in the signed-in user without touching the use cases.
 - **`index` holds an immutable snapshot**, replaced atomically after each committed write. The resolver reads only the snapshot, so a hit never touches the database.
-- **`httpd` and `web` contain no rules.** They translate HTTP into `app` calls and render the results.
+- **`httpd` and `web` contain no rules.** They translate HTTP into `app` calls and render the results. Even "may this user edit this link" is asked of `app` (`CanEdit`), and the save rules have one home, `linkmodel.ValidateDraft`.
+- **`serve` binds the address before it opens the database**, so a second instance fails on the port without touching the data.
 
 ### 3.3 Request routing
 
@@ -142,7 +145,7 @@ The resolver accepts `GET` and `HEAD` only and answers:
 |---|---|
 | Hit | `302` with `Location` and `Cache-Control: no-store` (RES-3) |
 | Miss, either kind | `404` with the miss page |
-| Malformed encoding | `400`. A malformed percent-escape (`go/a%zzb`, `go/%`) never reaches the handler: Go's HTTP server answers it with its own plain `400` (L0 spike, check 9, headless Chromium). The handler's own `400`, with a short page, is left for paths that reach it and still fail L2.5, such as invalid UTF-8 after decoding; the spike had no such variant |
+| Malformed encoding | `400`. A malformed percent-escape (`go/a%zzb`, `go/%`) never reaches the handler: Go's HTTP server answers it with its own plain `400` (L0 spike, check 9, headless Chromium). The handler's own `400`, with a short page, is left for paths that reach it and still fail L2.5, such as invalid UTF-8 after decoding; the spike had no such variant. Headers over 64 KiB get Go's own bare `431` the same way. Neither of Go's own answers carries the security headers |
 
 ### 3.4 Data model
 
@@ -202,7 +205,8 @@ Notes:
 
 - A variable's type is stored once, inside the pattern text. The API returns it parsed.
 - Times are UTC in RFC 3339 form.
-- Writes use SQLite's write-ahead log with full synchronous commits, so an acknowledged save survives a crash (NFR-7).
+- Writes use SQLite's write-ahead log with full synchronous commits, and `fullfsync` on macOS, so an acknowledged save survives a crash (NFR-7). A killed process is tested; power loss is designed for and not tested.
+- The store refuses a link name that is not already lowercase; lowercasing is the link model's rule (`NormalizeName`), applied by `app` before it writes.
 
 Later migrations, each arriving with the feature that needs it:
 
@@ -308,7 +312,7 @@ The resolver's decision:
 
 Every sentence shown to a user about why something failed comes from the server's `message` fields, so the wording has one source as well.
 
-Errors use one shape, `{ "error": { "code": "…", "message": "…", "details": {} } }`, with `400` for malformed requests, `404`, `409` for name and version conflicts, `415` for a wrong content type, and `422` for a draft that fails validation (carrying the same `routes[].problems` as the validate endpoint).
+Errors use one shape, `{ "error": { "code": "…", "message": "…", "details": {} } }`, with `400` for malformed requests, `404`, `409` for name and version conflicts, `415` for a wrong content type, `413` for a body over 1 MiB, and `422` for a draft that fails validation. A `422` carries `details.routes`, one entry per route sent and in the same order, each with that route's `problems`, plus `details.problems` for those that belong to no single route. Every `start` and `end` in the API counts UTF-16 code units, as JavaScript does.
 
 Export files, frozen at the gate because they are the migration path to a deployed Directory:
 
@@ -394,9 +398,10 @@ A local Directory has no sign-in, yet any web page open in the user's browser ca
 | Threat | Guard |
 |---|---|
 | Another machine on the network | Listen on loopback only. With sign-in off, refuse to start on any other address unless `--allow-unauthenticated-network` is given (DEP-3) |
-| DNS rebinding: a hostile domain that resolves to `127.0.0.1` | Serve a request only when its `Host` is `localhost`, `127.0.0.1`, or `[::1]` with the configured port, or a host added with `--allow-host` |
-| A web page writing across sites | A write must carry `Content-Type: application/json`, which a cross-site form cannot send without a preflight that is never approved. An `Origin` header, when present, must be the Directory's own; `Sec-Fetch-Site`, when present, must be `same-origin` or `none` |
+| DNS rebinding: a hostile domain that resolves to `127.0.0.1` | Serve a request only when its `Host` is `localhost`, `127.0.0.1`, or `[::1]` with the configured port, or a host added with `--allow-host`. This guards against browsers, not against other machines; the loopback listener does that |
+| A web page writing across sites | A write must carry `Content-Type: application/json`, which a cross-site form cannot send without a preflight that is never approved. An `Origin` header, when present, must be the Directory's own; `Sec-Fetch-Site`, when present, must be `same-origin` or `none`. Each of these headers may appear at most once, and an empty `Origin` counts as a mismatch |
 | A web page reading across sites | The Directory never sends CORS headers |
+| A web page probing which go links exist, by loading one as an image, a frame, or a fetch | The resolver answers a fixed `403`, before any lookup, when `Sec-Fetch-Site` is present and is neither `same-origin` nor `none`, unless the request is a top-level navigation (`Sec-Fetch-Mode: navigate` with `Sec-Fetch-Dest: document`). Clicked links and clients without these headers, such as `curl`, are unaffected. Added in L1 after review |
 | Script injection through a name, description, or path | Escaping templates, the `innerHTML` ban, and the content security policy (NFR-11) |
 
 `GET` requests never change state, apart from counting a use.
@@ -411,7 +416,8 @@ The write guards apply under `/-/` only, never to the resolver. In the L0 spike 
 | `--db` | `GODIR_DB` | `godir.db` in the data directory | Database file |
 | `--allow-host` | `GODIR_ALLOW_HOSTS` | none | Extra `Host` values to accept |
 | `--log-level` | `GODIR_LOG_LEVEL` | `info` | |
-| `--dev` | — | off | Serve templates and static files from disk |
+| `--dev` | — | off | Serve templates and static files from disk (no effect until L3.1) |
+| `--allow-unauthenticated-network` | — | off | Allow listening beyond loopback although there is no sign-in (section 3.8) |
 
 The data directory is `~/Library/Application Support/godir` on macOS, `$XDG_DATA_HOME/godir` (or `~/.local/share/godir`) on Linux, and `%LocalAppData%\godir` on Windows. It holds `godir.db`, `backups/`, and `logs/`. The database lives there and not in the repository checkout, so pulling or deleting the source never touches a user's links.
 
@@ -445,7 +451,7 @@ Two things automated tests cannot cover, which is why the manual list exists: Pl
 
 A task is done when its code and tests land together, `make check` passes, any behavior a user sees is described in the README or on the setup page, and the commit names the PRD requirements it advances.
 
-`make check` is the gate before every commit. When the repository gets a remote, a workflow runs the same command on Linux, with Chromium under a virtual display.
+`make check` is the gate before every commit. It pins `staticcheck` to a version and needs the network the first time; `STATICCHECK_OPTIONAL=1` skips that step visibly. The fuzz step retries only when Go's fuzz engine reports its own time limit as a failure with no failing input. When the repository gets a remote, a workflow runs the same command on Linux, with Chromium under a virtual display.
 
 ## 5. Local track
 
@@ -457,7 +463,7 @@ Each milestone lists what it **completes** (requirements fully met at its end) a
 
 **Status, 2026-10-13: done.** All checks have a recorded result and none failed, so no fallback of Appendix B applies. Checks 1 to 6, 8 to 15, and 17 matched their expected outcome by hand on Chrome 155 stable, and check 16 was recorded there (Chrome's error page). Two were run in a narrower form than Appendix B words them: check 4 with host access to `go` and the Directory, and check 5's hand-off from another app as a command-line hand-off to the test profile. Check 7 rests on the automated run in headless Chromium 156, with a resolver switch standing in for a hosts entry. The stack (Go) and the address-bar keyword (`go/`) are confirmed. The working name stays a placeholder (Q8), and port 4655 was free in every run. Name matching (Q5) is decided: names ignore case only, and `-` and `_` are significant. Within check 5 and check 14, the go link opened with Chrome closed was reported as working by the owner but was not seen in the stub's log. Results are in [spike-chrome.md](spike-chrome.md).
 
-- **L0.1 Throwaway extension and stub.** A minimal Manifest V3 extension with the rule of section 3.7, and a 30-line Go server on port 4655 that logs each request and answers `302` or `404`. Both live in `spike/` and are deleted when L1 starts.
+- **L0.1 Throwaway extension and stub.** A minimal Manifest V3 extension with the rule of section 3.7, and a 30-line Go server on port 4655 that logs each request and answers `302` or `404`. Both lived in `spike/`, which was deleted when L1 started; the code is in the repository's history at the tag `l0-spike`.
 - **L0.2 Run the checklist** of Appendix B on current Chrome stable on macOS, in a fresh profile. Record the Chrome version, the date, and what was observed for each check in `docs/spike-chrome.md`.
 - **L0.3 Apply the fallbacks.** For each check that fails, take the "if it fails" action in Appendix B and update this plan and PRD Appendix B.
 - **L0.4 Confirm section 2**: stack, name matching, working name, port, and the address-bar keyword for L6.8.
@@ -470,14 +476,16 @@ Each milestone lists what it **completes** (requirements fully met at its end) a
 
 **You can now** create `roadmap` with `curl`, type `go/roadmap` in Chrome, and land on its destination — and it still works after a restart.
 
+**Status, 2026-10-13: built and verified, with one check left for a person.** `make check` passes: formatting, vet, staticcheck, the Go tests with the race detector, three fuzz targets, the type check, 21 extension unit tests, and 12 end-to-end tests in headless Chromium with the extension loaded. An independent verification confirmed two of the three "done when" items (`make check` passes, and 25 of 25 saved links survived `kill -9`) and the nine requirements below, as far as headless Chromium can show them. The third item is the check left for a person: typing `go/roadmap` in real Chrome with `extension/` loaded. `docs/manual-tests.md` (L4.8) is not written yet. Three reviewers found no high-severity issue; their findings are fixed, and the one behavior they added is the probing guard in section 3.8.
+
 **Completes:** RES-3, RES-6, EXT-1, AUTH-1, DEP-1, DEP-3, DEP-6, NFR-4, NFR-7. **Starts:** RES-1, API-1.
 
 - **L1.1 Repository.** `git init`; the layout of section 3.1; `go.mod`; a `Makefile` with `run`, `test`, and `check`; `package.json` with `typescript`, `@types/chrome`, `@playwright/test`, and `@axe-core/playwright`; `.gitignore`; `gofmt`, `go vet`, and `staticcheck`.
 - **L1.2 Configuration.** The flags and environment variables of section 3.9; the per-OS data directory; `godir version`; the refusal to listen beyond loopback while sign-in is off.
 - **L1.3 Store and migrations.** Open SQLite with the write-ahead log, foreign keys on, and full synchronous commits. A migration runner over embedded `NNNN_name.sql` files, each applied in a transaction and recorded in `schema_migrations`. Before migrating an existing database, copy the file aside. Apply `0001_init.sql` and insert the built-in local user.
-- **L1.4 Link model, first cut.** Lowercasing of names (the only normalization, per Q5), literal-only patterns, and a destination that must be an absolute `http` or `https` URL. The package's types are final; L2 completes the rules.
+- **L1.4 Link model, first cut.** Lowercasing of names (the only normalization, per Q5), literal-only patterns, and a destination that must be an absolute `http` or `https` URL. L2 completes the rules and extends the types: a variable segment kind, the variables of a route, and removal and iteration on the index snapshot.
 - **L1.5 Index.** Load every link into a snapshot keyed by lowercase name at startup; swap in a new snapshot after each committed write.
-- **L1.6 HTTP server.** Listeners on both loopback addresses; the routing of section 3.3; the guards of section 3.8; security headers; graceful shutdown. When the port is taken, say whether another `godir` holds it (by asking its `meta` endpoint) or some other program.
+- **L1.6 HTTP server.** Listeners on both loopback addresses (the IPv6 one is skipped only on a machine without IPv6; if `[::1]` is taken, godir refuses to start); the routing of section 3.3; the guards of section 3.8; security headers; graceful shutdown. When the port is taken, say whether another `godir` holds it (by asking its `meta` endpoint) or some other program.
 - **L1.7 Endpoints.** `GET /-/api/v1/meta`, `GET /-/healthz`, `POST` and `GET /-/api/v1/links`, the resolver answering `302` or a bare `404`, and a placeholder page at `/-/`.
 - **L1.8 Extension skeleton.** `manifest.json` and a service worker that installs the redirect rule for the default Directory URL on install and on browser startup. No pages yet.
 - **L1.9 Tests.** Store and migration tests on temporary databases. HTTP tests for the redirect's status and headers and for each request guard. One Playwright test that starts the server, loads the extension, opens `http://go/x`, and asserts the browser lands on a fixture destination.
@@ -690,9 +698,10 @@ Ordered after the team release, from what usage shows.
 
 Open points that don't block L0–L4:
 
-- The product's name (Q8). The rename list is in section 3.1.
-- Where the repository is hosted. This decides the Go module path and when the CI workflow is wired.
-- A license, if the code is to be shared.
+- The server's name (the rest of Q8). The extension is Ogre; the server is still `godir`. The rename list is in section 3.1.
+- The CI workflow. The repository is `github.com/tfrydrychewicz/godir`, so the workflow of section 4 can be wired now.
+- Whether a destination may carry credentials (`https://user@host/`). L1 allows them, as PRD 5.4 implies; forbidding them would close a phishing shape such as `https://example.com@evil.example/`.
+- A license. The repository is public without one, so all rights are reserved until one is added.
 - How far to support Windows for the local server. This plan documents a Task Scheduler command and builds nothing more.
 
 ## Appendix A. Requirement traceability

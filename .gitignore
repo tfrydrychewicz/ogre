@@ -1,0 +1,11 @@
+# build output
+/bin/
+# development tools
+node_modules/
+/e2e/test-results/
+/e2e/playwright-report/
+# local data and scratch
+*.db
+*.db-shm
+*.db-wal
+.DS_Store

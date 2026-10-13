@@ -1,0 +1,18 @@
+{
+  "name": "godir-dev-tools",
+  "private": true,
+  "type": "module",
+  "description": "Development tools only: type-checking and end-to-end tests. Nothing here is needed to build or run godir.",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:extension": "node --test extension/",
+    "e2e": "playwright test --config e2e/playwright.config.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "@playwright/test": "1.64.0",
+    "@types/chrome": "^0.1.0",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}

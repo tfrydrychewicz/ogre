@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Ogre",
+  "version": "0.1.0",
+  "description": "Sends go links (go/name) to your godir Directory.",
+  "permissions": [
+    "declarativeNetRequestWithHostAccess"
+  ],
+  "host_permissions": [
+    "*://go/*",
+    "http://localhost:4655/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+}

@@ -452,7 +452,7 @@ Priorities map to the milestones in section 11:
 
 ## 9. Proposed architecture
 
-This section is a recommendation, not a requirement. The stack is an open question (Q4).
+This section is a recommendation, not a requirement. The stack was an open question (Q4) when it was written; it has since been decided (section 13), with type-checked JavaScript in place of TypeScript for the extension.
 
 ```text
 ┌──────────────────────┐                          ┌─────────────────────────────────────────┐
@@ -558,7 +558,7 @@ The rescue-rate target is a guess made without data. Reset it, and set targets f
 | Q5 | Should `-` and `_` be ignored in names, so that `on-call` and `oncall` are the same link? | **Decided 2026-10-13: no.** Names ignore case only. `on-call`, `on_call`, and `oncall` are different links, and "Did you mean" covers the near-misses. | M0 |
 | Q6 | How does the extension reach users of a deployed Directory: a public or unlisted Chrome Web Store listing, or enterprise force-install? | An unlisted store listing for a first team; force-install with EXT-9 for a company-wide rollout. | M2 |
 | Q7 | Is every link visible to every signed-in user? This document assumes so. Private or team-only links would touch search, resolution, and the miss page, which must not reveal hidden names. | Keep everything visible in v1. | M2 |
-| Q8 | What is the product called? "GoLinks" is an existing vendor's registered trademark. | Pick a distinct name before publishing an extension listing. | M2 |
+| Q8 | What is the product called? "GoLinks" is an existing vendor's registered trademark. | **Decided 2026-10-13 for the extension: Ogre.** The server keeps the working name `godir` until a name is chosen for it. | M2 |
 
 ## Appendix A. Additions to the original idea
 
