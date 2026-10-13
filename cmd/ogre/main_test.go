@@ -80,7 +80,7 @@ func failFast(t *testing.T) context.Context {
 }
 
 func TestCommandsThatDoNotServe(t *testing.T) {
-	neverDB := filepath.Join(t.TempDir(), "never", "godir.db")
+	neverDB := filepath.Join(t.TempDir(), "never", "ogre.db")
 	// A port nobody holds, so a refusal that broke would show as "it
 	// started", not as a clash with whatever uses the default port here.
 	_, port, _ := net.SplitHostPort(freeAddr(t))
@@ -92,10 +92,10 @@ func TestCommandsThatDoNotServe(t *testing.T) {
 		wantStdout string // substring; "" means stdout must be empty
 		wantStderr string // substring; "" means stderr must be empty
 	}{
-		{"version", []string{"version"}, 0, "godir " + version + "\n", ""},
+		{"version", []string{"version"}, 0, "ogre " + version + "\n", ""},
 		{"version with an argument", []string{"version", "extra"}, 1, "", `version takes no arguments, got "extra"`},
 		{"help", []string{"help"}, 0, "--allow-unauthenticated-network", ""},
-		{"help flag", []string{"--help"}, 0, "godir version", ""},
+		{"help flag", []string{"--help"}, 0, "ogre version", ""},
 		{"help flag of serve", []string{"serve", "-h"}, 0, "--db file", ""},
 		{"unknown command", []string{"bogus"}, 1, "", `unknown command "bogus"`},
 		{"unknown flag", []string{"--bogus"}, 1, "", "flag provided but not defined: -bogus"},
@@ -117,9 +117,9 @@ func TestCommandsThatDoNotServe(t *testing.T) {
 			checkOutput(t, "stdout", stdout.String(), tt.wantStdout)
 			checkOutput(t, "stderr", stderr.String(), tt.wantStderr)
 			if tt.wantCode != 0 {
-				// A failure is one line: "godir: <what went wrong>".
-				if got := stderr.String(); !strings.HasPrefix(got, "godir: ") || strings.Count(got, "\n") != 1 || !strings.HasSuffix(got, "\n") {
-					t.Errorf("stderr is not one \"godir: ...\" line: %q", got)
+				// A failure is one line: "ogre: <what went wrong>".
+				if got := stderr.String(); !strings.HasPrefix(got, "ogre: ") || strings.Count(got, "\n") != 1 || !strings.HasSuffix(got, "\n") {
+					t.Errorf("stderr is not one \"ogre: ...\" line: %q", got)
 				}
 			}
 		})
@@ -141,7 +141,7 @@ func checkOutput(t *testing.T, stream, got, want string) {
 	}
 }
 
-// running is a "godir serve" started by a test.
+// running is an "ogre serve" started by a test.
 type running struct {
 	url    string
 	stderr *lockedBuffer
@@ -167,7 +167,7 @@ func startServing(t *testing.T, addr, db string) *running {
 			select {
 			case code = <-exit:
 			case <-time.After(10 * time.Second):
-				t.Errorf("godir did not stop within 10s; its output:\n%s", r.stderr)
+				t.Errorf("ogre did not stop within 10s; its output:\n%s", r.stderr)
 			}
 		})
 		return code
@@ -179,7 +179,7 @@ func startServing(t *testing.T, addr, db string) *running {
 		select {
 		case code = <-exit:
 			once.Do(func() {})
-			t.Fatalf("godir exited with code %d before it was ready; its output:\n%s", code, r.stderr)
+			t.Fatalf("ogre exited with code %d before it was ready; its output:\n%s", code, r.stderr)
 		default:
 		}
 		resp, err := http.Get(r.url + "/-/healthz")
@@ -190,7 +190,7 @@ func startServing(t *testing.T, addr, db string) *running {
 			}
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("godir did not answer %s/-/healthz within 10s; its output:\n%s", r.url, r.stderr)
+			t.Fatalf("ogre did not answer %s/-/healthz within 10s; its output:\n%s", r.url, r.stderr)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
@@ -223,13 +223,13 @@ func expectRedirect(t *testing.T, base, path, destination string) {
 // stop, start again on the same database, and it is still there.
 func TestServeCreateResolveRestart(t *testing.T) {
 	addr := freeAddr(t)
-	db := filepath.Join(t.TempDir(), "data", "godir.db")
+	db := filepath.Join(t.TempDir(), "data", "ogre.db")
 	// Mixed case, an escape, a query and a fragment: a destination must come
 	// back from the database and go out in the redirect byte for byte.
 	const destination = "https://Docs.Example.com/Road-Map/1aB_cD?Tab=A%2Fb&X=Y#Frag"
 
 	first := startServing(t, addr, db)
-	for _, want := range []string{"godir is starting", "url=http://" + addr, db, "version=" + version} {
+	for _, want := range []string{"ogre is starting", "url=http://" + addr, db, "version=" + version} {
 		if !strings.Contains(first.stderr.String(), want) {
 			t.Errorf("the startup log does not mention %q:\n%s", want, first.stderr)
 		}
@@ -289,7 +289,7 @@ func TestServeCreateResolveRestart(t *testing.T) {
 	if code := first.stop(); code != 0 {
 		t.Errorf("exit code after a requested stop = %d, want 0; output:\n%s", code, first.stderr)
 	}
-	if !strings.Contains(first.stderr.String(), "godir has stopped") {
+	if !strings.Contains(first.stderr.String(), "ogre has stopped") {
 		t.Errorf("no stop line in the log:\n%s", first.stderr)
 	}
 	// NFR-17: the log names the link (for a miss, the requested name), never
@@ -308,11 +308,11 @@ func TestServeCreateResolveRestart(t *testing.T) {
 	expectRedirect(t, second.url, "/roadmap", destination)
 }
 
-func TestServeSaysWhenAnotherGodirHoldsThePort(t *testing.T) {
+func TestServeSaysWhenAnotherOgreHoldsThePort(t *testing.T) {
 	addr := freeAddr(t)
-	first := startServing(t, addr, filepath.Join(t.TempDir(), "godir.db"))
+	first := startServing(t, addr, filepath.Join(t.TempDir(), "ogre.db"))
 
-	otherDB := filepath.Join(t.TempDir(), "godir.db")
+	otherDB := filepath.Join(t.TempDir(), "ogre.db")
 	var stdout, stderr bytes.Buffer
 	code := run(failFast(t), []string{"--addr", addr, "--db", otherDB}, noEnv, &stdout, &stderr)
 
@@ -321,8 +321,8 @@ func TestServeSaysWhenAnotherGodirHoldsThePort(t *testing.T) {
 	}
 	lines := strings.Split(strings.TrimSuffix(stderr.String(), "\n"), "\n")
 	last := lines[len(lines)-1]
-	if !strings.HasPrefix(last, "godir: ") || !strings.Contains(last, "another godir") || !strings.Contains(last, version) {
-		t.Errorf("the last line does not say another godir (version %s) holds the port: %q", version, last)
+	if !strings.HasPrefix(last, "ogre: ") || !strings.Contains(last, "another ogre") || !strings.Contains(last, version) {
+		t.Errorf("the last line does not say another ogre (version %s) holds the port: %q", version, last)
 	}
 
 	// One line and nothing else: it never got as far as starting.
@@ -332,22 +332,22 @@ func TestServeSaysWhenAnotherGodirHoldsThePort(t *testing.T) {
 	// It did not touch a database it was never going to serve: the address
 	// is claimed before the database is opened.
 	if entries, err := os.ReadDir(filepath.Dir(otherDB)); err != nil || len(entries) != 0 {
-		t.Errorf("the second godir left %d files beside its database path (%v); want none", len(entries), err)
+		t.Errorf("the second ogre left %d files beside its database path (%v); want none", len(entries), err)
 	}
 
 	// The first one is unharmed.
 	resp, err := http.Get(first.url + "/-/healthz")
 	if err != nil {
-		t.Fatalf("the first godir stopped answering: %v", err)
+		t.Fatalf("the first ogre stopped answering: %v", err)
 	}
 	resp.Body.Close()
 }
 
-// A second godir pointed at the database of the running one must leave it
-// alone: no write, no migration, not even opening it.
-func TestSecondGodirDoesNotTouchTheSharedDatabase(t *testing.T) {
+// A second Ogre server pointed at the database of the running one must leave
+// it alone: no write, no migration, not even opening it.
+func TestSecondOgreDoesNotTouchTheSharedDatabase(t *testing.T) {
 	addr := freeAddr(t)
-	db := filepath.Join(t.TempDir(), "godir.db")
+	db := filepath.Join(t.TempDir(), "ogre.db")
 	first := startServing(t, addr, db)
 
 	before := snapshotDir(t, filepath.Dir(db))
@@ -367,7 +367,7 @@ func TestSecondGodirDoesNotTouchTheSharedDatabase(t *testing.T) {
 	}
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusCreated {
-		t.Errorf("POST after the second godir failed to start = %d, want 201", resp.StatusCode)
+		t.Errorf("POST after the second ogre failed to start = %d, want 201", resp.StatusCode)
 	}
 	expectRedirect(t, first.url, "/roadmap", "https://example.com/")
 }
@@ -395,13 +395,13 @@ func snapshotDir(t *testing.T, dir string) string {
 func TestServeFreesThePortWhenTheDatabaseCannotBeOpened(t *testing.T) {
 	addr := freeAddr(t)
 	// A directory where the database file should be.
-	db := filepath.Join(t.TempDir(), "godir.db")
+	db := filepath.Join(t.TempDir(), "ogre.db")
 	if err := os.Mkdir(db, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
 	code := run(failFast(t), []string{"--addr", addr, "--db", db}, noEnv, &stdout, &stderr)
-	if code != 1 || !strings.Contains(stderr.String(), "godir: ") || !strings.Contains(stderr.String(), "not a regular file") {
+	if code != 1 || !strings.Contains(stderr.String(), "ogre: ") || !strings.Contains(stderr.String(), "not a regular file") {
 		t.Errorf("exit code %d, stderr %q; want 1 and the reason", code, stderr.String())
 	}
 	_, port, _ := net.SplitHostPort(addr)
@@ -416,7 +416,7 @@ func TestServeFreesThePortWhenTheDatabaseCannotBeOpened(t *testing.T) {
 // else was created beside it.
 func TestServeUsesTheGivenDatabaseFile(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "data")
-	db := filepath.Join(dir, "godir.db")
+	db := filepath.Join(dir, "ogre.db")
 	srv := startServing(t, freeAddr(t), db)
 	resp, err := http.Post(srv.url+"/-/api/v1/links", "application/json",
 		strings.NewReader(`{"routes":[{"pattern":"roadmap","destination":"https://example.com/"}]}`))
@@ -437,7 +437,7 @@ func TestServeUsesTheGivenDatabaseFile(t *testing.T) {
 	}
 	for _, e := range entries {
 		switch e.Name() {
-		case "godir.db", "godir.db-wal", "godir.db-shm":
+		case "ogre.db", "ogre.db-wal", "ogre.db-shm":
 		default:
 			t.Errorf("unexpected file beside the database: %s", e.Name())
 		}
@@ -453,20 +453,20 @@ func serveWith(t *testing.T, flags ...string) (port string, stderr *lockedBuffer
 	ctx, cancel := context.WithCancel(context.Background())
 	stderr = &lockedBuffer{}
 	exit := make(chan int, 1)
-	args := append([]string{"--addr", addr, "--db", filepath.Join(t.TempDir(), "godir.db")}, flags...)
+	args := append([]string{"--addr", addr, "--db", filepath.Join(t.TempDir(), "ogre.db")}, flags...)
 	go func() { exit <- run(ctx, args, noEnv, io.Discard, stderr) }()
 	t.Cleanup(func() {
 		cancel()
 		select {
 		case <-exit:
 		case <-time.After(10 * time.Second):
-			t.Error("godir did not stop")
+			t.Error("ogre did not stop")
 		}
 	})
 	return port, stderr
 }
 
-// statusFor asks the godir on port for path under the given Host header.
+// statusFor asks the Ogre server on port for path under the given Host header.
 func statusFor(t *testing.T, port, host, path string, stderr *lockedBuffer) int {
 	t.Helper()
 	req, _ := http.NewRequest(http.MethodGet, "http://127.0.0.1:"+port+path, nil)
@@ -479,7 +479,7 @@ func statusFor(t *testing.T, port, host, path string, stderr *lockedBuffer) int 
 			return resp.StatusCode
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("godir did not answer: %v\n%s", err, stderr)
+			t.Fatalf("ogre did not answer: %v\n%s", err, stderr)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
@@ -515,7 +515,7 @@ func TestLogLevelIsHonoured(t *testing.T) {
 	for !strings.Contains(chatty.String(), "msg=request") && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
 	}
-	for _, want := range []string{"godir is starting", "msg=listening", "msg=request"} {
+	for _, want := range []string{"ogre is starting", "msg=listening", "msg=request"} {
 		if !strings.Contains(chatty.String(), want) {
 			t.Errorf("--log-level info did not log %q:\n%s", want, chatty.String())
 		}
@@ -531,7 +531,7 @@ func TestServeWithLeadingZerosInThePort(t *testing.T) {
 	stderr := &lockedBuffer{}
 	exit := make(chan int, 1)
 	go func() {
-		exit <- run(ctx, []string{"--addr", host + ":0" + port, "--db", filepath.Join(t.TempDir(), "godir.db")}, noEnv, io.Discard, stderr)
+		exit <- run(ctx, []string{"--addr", host + ":0" + port, "--db", filepath.Join(t.TempDir(), "ogre.db")}, noEnv, io.Discard, stderr)
 	}()
 	t.Cleanup(func() {
 		cancel()
@@ -557,12 +557,12 @@ func TestServeSaysWhenAnotherProgramHoldsThePort(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run(failFast(t),
-		[]string{"--addr", ln.Addr().String(), "--db", filepath.Join(t.TempDir(), "godir.db")}, noEnv, &stdout, &stderr)
+		[]string{"--addr", ln.Addr().String(), "--db", filepath.Join(t.TempDir(), "ogre.db")}, noEnv, &stdout, &stderr)
 
 	if code != 1 || !strings.Contains(stderr.String(), "in use by another program") {
 		t.Errorf("exit code %d, stderr %q; want 1 and \"in use by another program\"", code, stderr.String())
 	}
-	if strings.Contains(stderr.String(), "another godir") {
-		t.Errorf("a program that is not godir was taken for one: %q", stderr.String())
+	if strings.Contains(stderr.String(), "another ogre") {
+		t.Errorf("a program that is not ogre was taken for it: %q", stderr.String())
 	}
 }

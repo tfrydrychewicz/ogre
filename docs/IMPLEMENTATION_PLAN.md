@@ -37,7 +37,7 @@ Sizes compare milestones with each other; they are not time estimates.
 
 Sequencing rules:
 
-- Nothing in L1–L6 depends on the cloud track, and the cloud track changes no local behavior. After C3, `godir serve` with no configuration behaves exactly as it did at the gate.
+- Nothing in L1–L6 depends on the cloud track, and the cloud track changes no local behavior. After C3, `ogre serve` with no configuration behaves exactly as it did at the gate.
 - Every milestone ends with a tagged, working product. From L4 on, the owner can use it for real.
 - L5 is not optional. If cloud deployment becomes urgent, L6 is where to cut: its tasks are independent of each other and of the cloud track.
 - After L1, the extension tasks of L4 (L4.1–L4.5) don't depend on L2 or L3 and can run alongside them.
@@ -53,7 +53,7 @@ This plan replaces the sequencing in PRD section 11. The PRD's M1 is L1–L4 her
 | Q4, stack | Decided: Go, SQLite, JavaScript for the browser side — the PRD's recommendation, refined in 2.2. The owner confirmed Go on 2026-10-13 (L0.4), after comparing it with Node.js | Sections 3 and 4 and the task wording change; the milestones and their order do not |
 | Q5, name matching | Decided by the owner on 2026-10-13: names ignore case only. `-` and `_` are part of the name, so `on-call`, `on_call`, and `oncall` are different links | — |
 
-Q1, Q2, Q3, and Q6 are only needed by the cloud track and stay open until then. Q8 is settled for the extension, which is called Ogre; the server's name is still a placeholder (section 2.2).
+Q1, Q2, Q3, and Q6 are only needed by the cloud track and stay open until then. Q8 is decided: the whole product is called Ogre (section 2.2).
 
 ### 2.2 Technical choices
 
@@ -67,7 +67,7 @@ Q1, Q2, Q3, and Q6 are only needed by the cloud track and stay open until then. 
 | Types in JavaScript | JSDoc annotations checked by the TypeScript compiler (`tsc --noEmit`) | Type safety without compiling anything |
 | Tests | Go's `testing` package, including fuzzing and benchmarks; `node --test` for extension logic; Playwright for end-to-end tests with the extension loaded | Section 4 |
 | Logging | `log/slog` | Structured logs from the standard library |
-| Names | The extension is called **Ogre** (decided by the owner, 2026-10-13). The server keeps the working name `godir`: the binary, the repository `github.com/tfrydrychewicz/godir`, the Go module, and the data directory | Q8 is settled for the extension only; section 3.1 lists every place the server's name appears |
+| Names | The whole product is called **Ogre** (decided by the owner, 2026-10-13). Its two parts are the Ogre server, which the PRD calls the Directory, and the Ogre extension. The binary is `ogre`; the Go module path is `github.com/tfrydrychewicz/ogre`, which is also the repository on GitHub; the data directory is named `ogre` | Q8 is closed; section 3.1 says where the name lives |
 | Default address | Listens on `127.0.0.1:4655` and `[::1]:4655`; the Directory URL is `http://localhost:4655` | DEP-1 and DEP-3. 4655 spells GOLK on a phone keypad, and nothing uses it on the development machine |
 
 The product has one runtime dependency (the SQLite driver) until C1. Node.js is needed only to run checks and end-to-end tests, never to build or run the product.
@@ -78,14 +78,14 @@ The product has one runtime dependency (the SQLite driver) until C1. Node.js is 
 |---|---|---|
 | 1 | The extension is written in type-checked JavaScript, not TypeScript source | A compile step would add Node.js to the five-minute setup (DEP-2) |
 | 2 | Locally relevant P1 and P2 requirements ship before the team release | The local-first rule |
-| 3 | Added: a background service that starts at login (`godir service install`) | Without it, "usable locally" means keeping a terminal open |
+| 3 | Added: a background service that starts at login (`ogre service install`) | Without it, "usable locally" means keeping a terminal open |
 | 4 | Added: a daily database backup, and a copy before every schema change | A personal Directory holds data that exists nowhere else |
 | 5 | Added: request guards in local mode — a Host allow-list, a same-origin check on writes, and JSON-only writes | A server on localhost with no sign-in can be reached by any web page the user visits (section 3.8). The PRD asks for cross-site protection only when deployed (NFR-12) |
 | 6 | Added: a short list of reserved names such as `favicon.ico` and `robots.txt` | Browsers request these paths unprompted. The PRD assumed `/-/` was the only reservation |
 | 7 | Added: a request with malformed percent-encoding answers `400` instead of a miss | The PRD doesn't define the case |
 | 8 | MISS-5 (rescue counting) moves from P1 to C2 | It feeds team metrics, not local use |
 | 9 | Deleting is permanent until DIR-9 arrives in L6 | Reserving a deleted name without a restore screen would only confuse |
-| 10 | Added: `godir doctor`, a diagnostics command | Local problems have no operator to call |
+| 10 | Added: `ogre doctor`, a diagnostics command | Local problems have no operator to call |
 
 ## 3. Technical design
 
@@ -95,7 +95,7 @@ This is the layout at the local-release gate. At L1 these parts do not exist yet
 
 ```text
 .
-├── cmd/godir/            Command line: serve (default), version, service, export, import,
+├── cmd/ogre/             Command line: serve (default), version, service, export, import,
 │                         backup, restore, seed, doctor
 ├── internal/
 │   ├── linkmodel/        The rules of PRD section 5: parse, validate, match, expand, suggest.
@@ -117,7 +117,22 @@ This is the layout at the local-release gate. At L1 these parts do not exist yet
 └── README.md
 ```
 
-Renaming the server (the rest of Q8) touches: the repository and Go module path, `cmd/godir`, the binary name, the data-directory name, the `GODIR_` environment prefix, the service label, the `product` field of the `meta` endpoint, and the `format` field of export files. It also touches the database file name `godir.db`, `bin/godir` in the `Makefile` and the end-to-end harness, the `name` in `package.json`, the placeholder page, and the start and stop log lines. The extension's name, Ogre, lives in `extension/manifest.json`, the `[ogre]` log prefix of `extension/background.js`, the tests that assert it (`extension/manifest.test.js`, `e2e/extension.spec.mjs`), and the two READMEs.
+Q8 is closed, so no rename is planned. For the record, the name lives in these places:
+
+- the repository and the Go module path, which every import of an internal package repeats;
+- `cmd/ogre` and `bin/ogre`, both named in the `Makefile` and in the end-to-end harness;
+- the data-directory name and the database file name `ogre.db`;
+- the `OGRE_` environment prefix;
+- the `product` field of the `meta` endpoint, which the server itself and the end-to-end harness check to recognise a running server;
+- what the command prints: its help text, the `ogre:` error prefix, the start and stop log lines, and the messages that name the program (such as `another ogre` and `start ogre with --allow-host`);
+- the placeholder page;
+- the `name` and `description` in `package.json`, and the `name` in `package-lock.json`;
+- the `ogre-e2e-` prefix of the tests' temporary directories;
+- `extension/manifest.json` and the `[ogre]` log prefix of `extension/background.js`;
+- the comments, and the tests that assert any of the above;
+- the two READMEs, this plan, and Q8 in the PRD.
+
+Two more arrive in L5: the service label and the `format` field of export files.
 
 ### 3.2 Components and their boundaries
 
@@ -225,7 +240,7 @@ All endpoints live under `/-/api/v1`.
 
 | Endpoint | Purpose | From |
 |---|---|---|
-| `GET /meta` | Product identifier, version, API version | L1 |
+| `GET /meta` | Product identifier (`"product": "ogre"`), version, API version | L1 |
 | `GET /links?q=&limit=` | Ranked search, or a plain list when `q` is empty | L1, search in L3 |
 | `POST /links` | Create | L1, full model in L2 |
 | `GET`, `PATCH`, `DELETE /links/{id}` | Read, update, delete | L2 |
@@ -317,7 +332,7 @@ Errors use one shape, `{ "error": { "code": "…", "message": "…", "details": 
 Export files, frozen at the gate because they are the migration path to a deployed Directory:
 
 ```json
-{ "format": "godir-export", "version": 1, "exportedAt": "2026-10-13T09:00:00Z",
+{ "format": "ogre-export", "version": 1, "exportedAt": "2026-10-13T09:00:00Z",
   "links": [ { "name": "gh", "description": "GitHub shortcuts", "owner": "local",
                "routes": [ { "pattern": "gh/{repo}", "destination": "https://github.com/acme/{repo}",
                              "variables": { "repo": { "description": "", "example": "" } } } ] } ] }
@@ -412,14 +427,14 @@ The write guards apply under `/-/` only, never to the resolver. In the L0 spike 
 
 | Flag | Environment | Default | Meaning |
 |---|---|---|---|
-| `--addr` | `GODIR_ADDR` | `localhost:4655`, both loopback addresses | Where to listen |
-| `--db` | `GODIR_DB` | `godir.db` in the data directory | Database file |
-| `--allow-host` | `GODIR_ALLOW_HOSTS` | none | Extra `Host` values to accept |
-| `--log-level` | `GODIR_LOG_LEVEL` | `info` | |
+| `--addr` | `OGRE_ADDR` | `localhost:4655`, both loopback addresses | Where to listen |
+| `--db` | `OGRE_DB` | `ogre.db` in the data directory | Database file |
+| `--allow-host` | `OGRE_ALLOW_HOSTS` | none | Extra `Host` values to accept |
+| `--log-level` | `OGRE_LOG_LEVEL` | `info` | |
 | `--dev` | — | off | Serve templates and static files from disk (no effect until L3.1) |
 | `--allow-unauthenticated-network` | — | off | Allow listening beyond loopback although there is no sign-in (section 3.8) |
 
-The data directory is `~/Library/Application Support/godir` on macOS, `$XDG_DATA_HOME/godir` (or `~/.local/share/godir`) on Linux, and `%LocalAppData%\godir` on Windows. It holds `godir.db`, `backups/`, and `logs/`. The database lives there and not in the repository checkout, so pulling or deleting the source never touches a user's links.
+The data directory is `~/Library/Application Support/ogre` on macOS, `$XDG_DATA_HOME/ogre` (or `~/.local/share/ogre`) on Linux, and `%LocalAppData%\ogre` on Windows. It holds `ogre.db`, `backups/`, and `logs/`. The database lives there and not in the repository checkout, so pulling or deleting the source never touches a user's links.
 
 ### 3.10 What the local track builds so the cloud track needs no rewrite
 
@@ -451,7 +466,7 @@ Two things automated tests cannot cover, which is why the manual list exists: Pl
 
 A task is done when its code and tests land together, `make check` passes, any behavior a user sees is described in the README or on the setup page, and the commit names the PRD requirements it advances.
 
-`make check` is the gate before every commit. It pins `staticcheck` to a version and needs the network the first time; `STATICCHECK_OPTIONAL=1` skips that step visibly. The fuzz step retries only when Go's fuzz engine reports its own time limit as a failure with no failing input. When the repository gets a remote, a workflow runs the same command on Linux, with Chromium under a virtual display.
+`make check` is the gate before every commit. It pins `staticcheck` to a version and needs the network the first time; `STATICCHECK_OPTIONAL=1` skips that step visibly. The fuzz step retries only when Go's fuzz engine reports its own time limit as a failure with no failing input. The repository has a remote on GitHub; a workflow that runs the same command on Linux, with Chromium under a virtual display, is still to be written (section 9).
 
 ## 5. Local track
 
@@ -461,7 +476,7 @@ Each milestone lists what it **completes** (requirements fully met at its end) a
 
 **Goal.** Confirm in a real browser the Chrome behaviors the design rests on, before any product code exists.
 
-**Status, 2026-10-13: done.** All checks have a recorded result and none failed, so no fallback of Appendix B applies. Checks 1 to 6, 8 to 15, and 17 matched their expected outcome by hand on Chrome 155 stable, and check 16 was recorded there (Chrome's error page). Two were run in a narrower form than Appendix B words them: check 4 with host access to `go` and the Directory, and check 5's hand-off from another app as a command-line hand-off to the test profile. Check 7 rests on the automated run in headless Chromium 156, with a resolver switch standing in for a hosts entry. The stack (Go) and the address-bar keyword (`go/`) are confirmed. The working name stays a placeholder (Q8), and port 4655 was free in every run. Name matching (Q5) is decided: names ignore case only, and `-` and `_` are significant. Within check 5 and check 14, the go link opened with Chrome closed was reported as working by the owner but was not seen in the stub's log. Results are in [spike-chrome.md](spike-chrome.md).
+**Status, 2026-10-13: done.** All checks have a recorded result and none failed, so no fallback of Appendix B applies. Checks 1 to 6, 8 to 15, and 17 matched their expected outcome by hand on Chrome 155 stable, and check 16 was recorded there (Chrome's error page). Two were run in a narrower form than Appendix B words them: check 4 with host access to `go` and the Directory, and check 5's hand-off from another app as a command-line hand-off to the test profile. Check 7 rests on the automated run in headless Chromium 156, with a resolver switch standing in for a hosts entry. The stack (Go) and the address-bar keyword (`go/`) are confirmed. The working name the spike ran under, `godir`, has since been replaced: the product is called Ogre (Q8). Port 4655 was free in every run. Name matching (Q5) is decided: names ignore case only, and `-` and `_` are significant. Within check 5 and check 14, the go link opened with Chrome closed was reported as working by the owner but was not seen in the stub's log. Results are in [spike-chrome.md](spike-chrome.md).
 
 - **L0.1 Throwaway extension and stub.** A minimal Manifest V3 extension with the rule of section 3.7, and a 30-line Go server on port 4655 that logs each request and answers `302` or `404`. Both lived in `spike/`, which was deleted when L1 started; the code is in the repository's history at the tag `l0-spike`.
 - **L0.2 Run the checklist** of Appendix B on current Chrome stable on macOS, in a fresh profile. Record the Chrome version, the date, and what was observed for each check in `docs/spike-chrome.md`.
@@ -481,11 +496,11 @@ Each milestone lists what it **completes** (requirements fully met at its end) a
 **Completes:** RES-3, RES-6, EXT-1, AUTH-1, DEP-1, DEP-3, DEP-6, NFR-4, NFR-7. **Starts:** RES-1, API-1.
 
 - **L1.1 Repository.** `git init`; the layout of section 3.1; `go.mod`; a `Makefile` with `run`, `test`, and `check`; `package.json` with `typescript`, `@types/chrome`, `@playwright/test`, and `@axe-core/playwright`; `.gitignore`; `gofmt`, `go vet`, and `staticcheck`.
-- **L1.2 Configuration.** The flags and environment variables of section 3.9; the per-OS data directory; `godir version`; the refusal to listen beyond loopback while sign-in is off.
+- **L1.2 Configuration.** The flags and environment variables of section 3.9; the per-OS data directory; `ogre version`; the refusal to listen beyond loopback while sign-in is off.
 - **L1.3 Store and migrations.** Open SQLite with the write-ahead log, foreign keys on, and full synchronous commits. A migration runner over embedded `NNNN_name.sql` files, each applied in a transaction and recorded in `schema_migrations`. Before migrating an existing database, copy the file aside. Apply `0001_init.sql` and insert the built-in local user.
 - **L1.4 Link model, first cut.** Lowercasing of names (the only normalization, per Q5), literal-only patterns, and a destination that must be an absolute `http` or `https` URL. L2 completes the rules and extends the types: a variable segment kind, the variables of a route, and removal and iteration on the index snapshot.
 - **L1.5 Index.** Load every link into a snapshot keyed by lowercase name at startup; swap in a new snapshot after each committed write.
-- **L1.6 HTTP server.** Listeners on both loopback addresses (the IPv6 one is skipped only on a machine without IPv6; if `[::1]` is taken, godir refuses to start); the routing of section 3.3; the guards of section 3.8; security headers; graceful shutdown. When the port is taken, say whether another `godir` holds it (by asking its `meta` endpoint) or some other program.
+- **L1.6 HTTP server.** Listeners on both loopback addresses (the IPv6 one is skipped only on a machine without IPv6; if `[::1]` is taken, the server refuses to start); the routing of section 3.3; the guards of section 3.8; security headers; graceful shutdown. When the port is taken, say whether another `ogre` holds it (by asking its `meta` endpoint) or some other program.
 - **L1.7 Endpoints.** `GET /-/api/v1/meta`, `GET /-/healthz`, `POST` and `GET /-/api/v1/links`, the resolver answering `302` or a bare `404`, and a placeholder page at `/-/`.
 - **L1.8 Extension skeleton.** `manifest.json` and a service worker that installs the redirect rule for the default Directory URL on install and on browser startup. No pages yet.
 - **L1.9 Tests.** Store and migration tests on temporary databases. HTTP tests for the redirect's status and headers and for each request guard. One Playwright test that starts the server, loads the extension, opens `http://go/x`, and asserts the browser lands on a fixture destination.
@@ -504,7 +519,7 @@ Each milestone lists what it **completes** (requirements fully met at its end) a
 - **L2.1 Fixtures first.** Transcribe PRD 5.7 into `spec.json`: the links, every request with its expected outcome, and every save attempt. Mark request 18 as pending RES-8. Write the test that replays them; it fails until L2.9.
 - **L2.2 Pattern parser.** A tokenizer, not a split on `/`: inside `regex(` it follows nested parentheses, escapes, and character classes (PRD 5.2). It produces segments with source offsets, reports problems as a code, a message, and a start and end offset, and enforces the character rules, the literal first segment, unique variable names, and the limits. It also provides the canonical text form, the shape, and the lowercasing of names.
 - **L2.3 Types.** A small interface — does it accept this value, how is it described to a user, is it restricted, how is it written — implemented for `string`, `int`, `number`, and `regex`. A regex is compiled by Go's `regexp`, wrapped as `^(?:…)$`, and limited to 200 characters. L6 adds types through the same interface.
-- **L2.4 Destination templates.** Validate per PRD 5.4: absolute `http` or `https`, at most 2,048 characters, no placeholder in the scheme or authority (checked on the text, before URL parsing), every placeholder declared, unused variables as a warning, not a go link and not a URL on the Directory. Record whether each placeholder sits in the path, the query, or the fragment. Expand by percent-encoding everything except unreserved characters. After expanding, assert that the scheme and host equal the template's; a mismatch is a logged bug and a `500`, never a redirect.
+- **L2.4 Destination templates.** Validate per PRD 5.4: absolute `http` or `https`, at most 2,048 characters, no credentials (a user name or password before the host, as in `https://example.com@evil.example/`), no placeholder in the scheme or authority (checked on the text, before URL parsing), every placeholder declared, unused variables as a warning, not a go link and not a URL on the Directory. Record whether each placeholder sits in the path, the query, or the fragment. Expand by percent-encoding everything except unreserved characters. After expanding, assert that the scheme and host equal the template's; a mismatch is a logged bug and a `500`, never a redirect. The credentials rule is new with this task. The L1 build still accepts such destinations (`ValidateDestination` in `internal/linkmodel` and its tests say so, and change here); the owner decided on 2026-10-13 to forbid them. Still to settle within this task: what happens to a link saved earlier with such a destination. Validation runs only when a link is saved, so a stored link is not checked again by itself.
 - **L2.5 Request splitting.** PRD 5.5 step 1 on the raw path: drop the query and fragment, split on `/`, discard empty segments, decode each segment once. A malformed escape or invalid UTF-8 is a bad request.
 - **L2.6 Matching.** PRD 5.5 steps 2–4: candidate routes, acceptance per segment, specificity compared from the left (literal, then restricted variable, then text variable, then `path`), then route order. A variable whose placeholder sits in the destination's path rejects `.` and `..` (NFR-10). Every route that doesn't match yields a reason — wrong segment count, literal mismatch, or value rejected — with the variable, the value, what the variable accepts, and a sentence ready to show.
 - **L2.7 Save rules.** A name unique ignoring case; all routes of a link share one name; a unique shape within the link; at most 20 routes; the reserved names of section 3.3.
@@ -565,17 +580,17 @@ Each milestone lists what it **completes** (requirements fully met at its end) a
 
 **Completes:** DIR-5, VAR-6, MISS-4, EXT-5, INS-1, INS-2, INS-3, DEP-10, NFR-16.
 
-- **L5.1 Background service.** `godir service install`, `uninstall`, `status`, `restart`, and `logs`. On macOS, a LaunchAgent that runs at login and restarts the process if it exits. On Linux, a systemd user unit. On Windows, a documented Task Scheduler command. The service runs the binary that executed `install`, and refuses when that binary is a `go run` temporary file. Log files rotate at a size cap.
-- **L5.2 Install path.** `make install`, and a README section "Use it every day": install, `godir service install`, done.
+- **L5.1 Background service.** `ogre service install`, `uninstall`, `status`, `restart`, and `logs`. On macOS, a LaunchAgent that runs at login and restarts the process if it exits. On Linux, a systemd user unit. On Windows, a documented Task Scheduler command. The service runs the binary that executed `install`, and refuses when that binary is a `go run` temporary file. Log files rotate at a size cap.
+- **L5.2 Install path.** `make install`, and a README section "Use it every day": install, `ogre service install`, done.
 - **L5.3 Unreachable page.** The service worker watches for failed top-level requests to the Directory's origin and replaces the tab with an extension page. The page names the configured URL, offers Retry and Settings, and — for a local URL — shows the command that starts the Directory. A failed Retry must not loop. From the L0 spike (check 12, headless Chromium only): when `onErrorOccurred` fired, `chrome.tabs.get` never gave a `pendingUrl`. It gave a `url` only when the tab was already showing the extension's own unreachable page (the failed Retry and the Back case); for a tab coming from a page the extension may not read it gave neither. So the handler cannot check that the tab still shows the failed address; the spike skipped `net::ERR_ABORTED` and non-active documents instead. Pressing Back on the unreachable page behaved differently in the two runs: headless Chromium returned to the failed address and landed on the unreachable page again, while Chrome 155 stable, by hand, returned to the page the tab showed before. Test Back on Chrome stable and keep that behavior.
-- **L5.4 Export and import.** `GET /export` returns the document of section 3.5. `POST /import?dryRun=true` reports what would be created, skipped as conflicting, or rejected as invalid, with reasons; without `dryRun`, it applies the same plan in one transaction. Buttons on the settings page; `godir export` and `godir import` on the command line. A round-trip test: export, empty the database, import, compare.
-- **L5.5 Backups.** A daily copy of the database made with `VACUUM INTO`, keeping the last seven. `godir backup <file>` on demand. `godir restore <file>` with the server stopped. Restore steps in the README.
+- **L5.4 Export and import.** `GET /export` returns the document of section 3.5. `POST /import?dryRun=true` reports what would be created, skipped as conflicting, or rejected as invalid, with reasons; without `dryRun`, it applies the same plan in one transaction. Buttons on the settings page; `ogre export` and `ogre import` on the command line. A round-trip test: export, empty the database, import, compare.
+- **L5.5 Backups.** A daily copy of the database made with `VACUUM INTO`, keeping the last seven. `ogre backup <file>` on demand. `ogre restore <file>` with the server stopped. Restore steps in the README.
 - **L5.6 Usage counts.** Migration `0002`. Hits are counted in memory per route and written every 10 seconds and at shutdown. The link page shows totals and last use; the home page gains "Most used"; recent use breaks ties in search and orders suggestions; the delete confirmation shows last use. Nothing per user and nothing per value is stored (NFR-16, NFR-17).
 - **L5.7 History and revert.** The link page lists revisions with what changed in each. Any revision can be viewed and restored; restoring writes a new revision and validates against the Directory as it is now.
 - **L5.8 Variable descriptions and examples.** Editable in the variables table. An example must satisfy its variable's type. Both appear in the launcher, in search results, and in usage help, and examples prefill the form's preview.
 - **L5.9 Keyboard-first miss page.** The first suggestion has focus, Enter follows it, and the digits 1–5 choose.
-- **L5.10 Sample links.** `godir seed` adds a handful of links to public sites that show each variable type, and only into an empty Directory.
-- **L5.11 Diagnostics.** `godir doctor` reports the address and whether the server answers, the database path and its integrity check, the schema version, the service's state, and the age of the last backup.
+- **L5.10 Sample links.** `ogre seed` adds a handful of links to public sites that show each variable type, and only into an empty Directory.
+- **L5.11 Diagnostics.** `ogre doctor` reports the address and whether the server answers, the database path and its integrity check, the schema version, the service's state, and the age of the last backup.
 - **L5.12 Upgrade safety.** A `v0.1.0` database fixture migrates cleanly in tests. The `meta` endpoint reports the API version, and the extension warns when it doesn't support it.
 - **L5.13 Tag `v0.2.0`.**
 
@@ -693,14 +708,12 @@ Ordered after the team release, from what usage shows.
 | Browser code without a build step becomes hard to maintain | Slower UI work in L5 and L6 | Type-checked from day one; small components. Switching to TypeScript sources later is confined to `internal/web/static` and `extension/` |
 | The pure-Go SQLite driver is slower than expected | NFR-3 or NFR-5 missed | The resolver never touches the database; L4.7 measures the rest; a cgo driver fits behind the same interface |
 | Unpacked extensions need Chrome's developer mode | Friction for daily local use | Acceptable for the owner. If it grates, bring C2.7 forward — packaging doesn't depend on the rest of the cloud track |
-| Autostart differs between launchd and systemd | The service doesn't come up after login on some machine | A reboot test per OS on the manual list; `godir doctor` |
+| Autostart differs between launchd and systemd | The service doesn't come up after login on some machine | A reboot test per OS on the manual list; `ogre doctor` |
 | L5 and L6 delay the cloud track | A later team release | L6 is the cut line |
 
 Open points that don't block L0–L4:
 
-- The server's name (the rest of Q8). The extension is Ogre; the server is still `godir`. The rename list is in section 3.1.
-- The CI workflow. The repository is `github.com/tfrydrychewicz/godir`, so the workflow of section 4 can be wired now.
-- Whether a destination may carry credentials (`https://user@host/`). L1 allows them, as PRD 5.4 implies; forbidding them would close a phishing shape such as `https://example.com@evil.example/`.
+- The CI workflow. The repository is on GitHub, so the workflow of section 4 can be wired now.
 - How far to support Windows for the local server. This plan documents a Task Scheduler command and builds nothing more.
 
 ## Appendix A. Requirement traceability

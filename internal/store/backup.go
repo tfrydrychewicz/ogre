@@ -29,7 +29,7 @@ func (s *SQLite) backupBeforeMigrating(ctx context.Context, version int) error {
 		return err
 	}
 	// Write under a temporary name and rename, so a file with a backup's name
-	// is always a complete backup, even if godir is killed while writing it.
+	// is always a complete backup, even if ogre is killed while writing it.
 	tmp := dest + ".tmp"
 	if err := os.Remove(tmp); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err

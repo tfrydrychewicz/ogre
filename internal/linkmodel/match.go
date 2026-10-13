@@ -14,7 +14,7 @@ type CompiledLink struct {
 //
 // A route whose saved pattern no longer parses is kept in Link.Routes but
 // never matches. Every pattern is validated before it is saved, so this only
-// concerns data written by something other than godir; refusing to start
+// concerns data written by something other than Ogre; refusing to start
 // over one such route would take every other link down with it.
 func Compile(l Link) CompiledLink {
 	c := CompiledLink{Link: l, patterns: make([]Pattern, len(l.Routes))}

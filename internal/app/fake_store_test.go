@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
-	"github.com/tfrydrychewicz/godir/internal/store"
-	"github.com/tfrydrychewicz/godir/internal/store/storetest"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/store"
+	"github.com/tfrydrychewicz/ogre/internal/store/storetest"
 )
 
 // fakeStore is an in-memory store.Store for the use-case tests. It follows

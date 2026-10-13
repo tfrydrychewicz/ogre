@@ -10,8 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/tfrydrychewicz/godir/internal/app"
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/app"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
 )
 
 // syncBuffer is a bytes.Buffer safe to write from server goroutines.

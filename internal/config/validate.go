@@ -37,7 +37,7 @@ func (c Config) Validate() error {
 	if host == "" {
 		what = "an address without a host listens on every network interface"
 	}
-	return fmt.Errorf("listen address %q: %w: %s, and godir has no sign-in, so anyone who can reach it could change your links. "+
+	return fmt.Errorf("listen address %q: %w: %s, and ogre has no sign-in, so anyone who can reach it could change your links. "+
 		"Use localhost, 127.0.0.1 or [::1], or pass --allow-unauthenticated-network to accept the risk",
 		c.Addr, ErrNotLoopback, what)
 }

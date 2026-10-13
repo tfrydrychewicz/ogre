@@ -40,7 +40,7 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	want := Config{
 		Addr:     "localhost:4655",
-		DBPath:   filepath.Join("/home/tester", "Library", "Application Support", "godir", "godir.db"),
+		DBPath:   filepath.Join("/home/tester", "Library", "Application Support", "ogre", "ogre.db"),
 		LogLevel: slog.LevelInfo,
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -57,10 +57,10 @@ func TestLoadDefaultDBPathPerOS(t *testing.T) {
 		vars map[string]string
 		want string
 	}{
-		{"darwin", nil, filepath.Join("/home/tester", "Library", "Application Support", "godir", "godir.db")},
-		{"linux", nil, filepath.Join("/home/tester", ".local", "share", "godir", "godir.db")},
-		{"linux", map[string]string{"XDG_DATA_HOME": "/data/xdg"}, filepath.Join("/data/xdg", "godir", "godir.db")},
-		{"windows", nil, filepath.Join(`C:\Users\tester\AppData\Local`, "godir", "godir.db")},
+		{"darwin", nil, filepath.Join("/home/tester", "Library", "Application Support", "ogre", "ogre.db")},
+		{"linux", nil, filepath.Join("/home/tester", ".local", "share", "ogre", "ogre.db")},
+		{"linux", map[string]string{"XDG_DATA_HOME": "/data/xdg"}, filepath.Join("/data/xdg", "ogre", "ogre.db")},
+		{"windows", nil, filepath.Join(`C:\Users\tester\AppData\Local`, "ogre", "ogre.db")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.goos, func(t *testing.T) {
@@ -136,7 +136,7 @@ func TestLoad(t *testing.T) {
 		},
 		{
 			name: "the switches have no environment variable",
-			vars: map[string]string{"GODIR_DEV": "1", "GODIR_ALLOW_UNAUTHENTICATED_NETWORK": "1"},
+			vars: map[string]string{"OGRE_DEV": "1", "OGRE_ALLOW_UNAUTHENTICATED_NETWORK": "1"},
 			want: Config{Addr: "localhost:4655", DBPath: defaultDB, LogLevel: slog.LevelInfo},
 		},
 		{
@@ -212,7 +212,7 @@ func TestLoad(t *testing.T) {
 }
 
 // defaultDB is the default database path of the "linux" cases in TestLoad.
-var defaultDB = filepath.Join("/home/tester", ".local", "share", "godir", "godir.db")
+var defaultDB = filepath.Join("/home/tester", ".local", "share", "ogre", "ogre.db")
 
 func TestLoadErrors(t *testing.T) {
 	tests := []struct {
@@ -254,7 +254,7 @@ func TestLoadErrors(t *testing.T) {
 		{
 			name: "bad log level variable",
 			vars: map[string]string{EnvLogLevel: "loud"},
-			want: []string{"GODIR_LOG_LEVEL", `"loud"`},
+			want: []string{"OGRE_LOG_LEVEL", `"loud"`},
 		},
 		{
 			name: "allow-host given a URL",
@@ -264,7 +264,7 @@ func TestLoadErrors(t *testing.T) {
 		{
 			name: "allow-host variable given a path",
 			vars: map[string]string{EnvAllowHosts: "go,go/links"},
-			want: []string{"GODIR_ALLOW_HOSTS", "go/links"},
+			want: []string{"OGRE_ALLOW_HOSTS", "go/links"},
 		},
 		{
 			name: "allow-host wildcard",
@@ -305,7 +305,7 @@ func TestLoadWithoutAHomeDirectory(t *testing.T) {
 	if err == nil {
 		t.Fatal("load succeeded without any way to find the data directory")
 	}
-	for _, want := range []string{"--db", "GODIR_DB"} {
+	for _, want := range []string{"--db", "OGRE_DB"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not point to %s", err, want)
 		}
@@ -373,39 +373,39 @@ func TestDataDir(t *testing.T) {
 		{
 			name: "macOS", goos: "darwin",
 			vars: map[string]string{"HOME": "/Users/ada", "XDG_DATA_HOME": "/ignored/on/macos"},
-			want: filepath.Join("/Users/ada", "Library", "Application Support", "godir"),
+			want: filepath.Join("/Users/ada", "Library", "Application Support", "ogre"),
 		},
 		{name: "macOS without HOME", goos: "darwin", wantErr: true},
 		{
 			name: "Linux with XDG_DATA_HOME", goos: "linux",
 			vars: map[string]string{"HOME": "/home/ada", "XDG_DATA_HOME": "/data/xdg"},
-			want: filepath.Join("/data/xdg", "godir"),
+			want: filepath.Join("/data/xdg", "ogre"),
 		},
 		{
 			name: "Linux without XDG_DATA_HOME", goos: "linux",
 			vars: map[string]string{"HOME": "/home/ada"},
-			want: filepath.Join("/home/ada", ".local", "share", "godir"),
+			want: filepath.Join("/home/ada", ".local", "share", "ogre"),
 		},
 		{
 			name: "Linux ignores a relative XDG_DATA_HOME", goos: "linux",
 			vars: map[string]string{"HOME": "/home/ada", "XDG_DATA_HOME": "relative/dir"},
-			want: filepath.Join("/home/ada", ".local", "share", "godir"),
+			want: filepath.Join("/home/ada", ".local", "share", "ogre"),
 		},
 		{name: "Linux with neither", goos: "linux", wantErr: true},
 		{
 			name: "other Unix follows Linux", goos: "freebsd",
 			vars: map[string]string{"HOME": "/home/ada"},
-			want: filepath.Join("/home/ada", ".local", "share", "godir"),
+			want: filepath.Join("/home/ada", ".local", "share", "ogre"),
 		},
 		{
 			name: "Windows", goos: "windows",
 			vars: map[string]string{"LOCALAPPDATA": `C:\Users\ada\AppData\Local`, "USERPROFILE": `C:\Users\ada`},
-			want: filepath.Join(`C:\Users\ada\AppData\Local`, "godir"),
+			want: filepath.Join(`C:\Users\ada\AppData\Local`, "ogre"),
 		},
 		{
 			name: "Windows without LocalAppData", goos: "windows",
 			vars: map[string]string{"USERPROFILE": `C:\Users\ada`},
-			want: filepath.Join(`C:\Users\ada`, "AppData", "Local", "godir"),
+			want: filepath.Join(`C:\Users\ada`, "AppData", "Local", "ogre"),
 		},
 		{name: "Windows with neither", goos: "windows", wantErr: true},
 	}
@@ -433,11 +433,11 @@ func TestDefaultDataDir(t *testing.T) {
 	var want string
 	switch runtime.GOOS {
 	case "darwin":
-		want = filepath.Join(tmp, "Library", "Application Support", "godir")
+		want = filepath.Join(tmp, "Library", "Application Support", "ogre")
 	case "windows":
-		want = filepath.Join(tmp, "AppData", "Local", "godir")
+		want = filepath.Join(tmp, "AppData", "Local", "ogre")
 	default:
-		want = filepath.Join(tmp, ".local", "share", "godir")
+		want = filepath.Join(tmp, ".local", "share", "ogre")
 	}
 	got, err := DefaultDataDir()
 	if err != nil {

@@ -26,7 +26,7 @@ import { DEFAULT_DIRECTORY_URL, buildRedirectRule, sameRedirectRule } from "../.
 /** @typedef {import("@playwright/test").Worker} Worker */
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-export const SERVER_BIN = path.join(REPO_ROOT, "bin", process.platform === "win32" ? "godir.exe" : "godir");
+export const SERVER_BIN = path.join(REPO_ROOT, "bin", process.platform === "win32" ? "ogre.exe" : "ogre");
 export const EXTENSION_DIR = path.join(REPO_ROOT, "extension");
 
 /** The address the extension redirects to. The server under test must listen exactly here. */
@@ -73,7 +73,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * Creates an empty directory under the system temp directory. It is removed
  * when this process exits.
  *
- * @param {string} prefix for example "godir-e2e-data-"
+ * @param {string} prefix for example "ogre-e2e-data-"
  * @returns {string} absolute path
  */
 export function tempDir(prefix) {
@@ -101,21 +101,21 @@ function assertUnderTempDir(file) {
 // The server under test
 
 /**
- * Builds bin/godir from ./cmd/godir, as `make` would.
+ * Builds bin/ogre from ./cmd/ogre, as `make` would.
  *
  * @returns {string} path of the binary
  * @throws {Error} with the compiler's output when the build fails
  */
 export function buildServer() {
   try {
-    execFileSync("go", ["build", "-o", path.relative(REPO_ROOT, SERVER_BIN), "./cmd/godir"], {
+    execFileSync("go", ["build", "-o", path.relative(REPO_ROOT, SERVER_BIN), "./cmd/ogre"], {
       cwd: REPO_ROOT,
       stdio: ["ignore", "pipe", "pipe"],
       encoding: "utf8",
     });
   } catch (error) {
     const failure = /** @type {{ stdout?: string, stderr?: string, message?: string }} */ (error);
-    throw new Error(`go build ./cmd/godir failed:\n${failure.stderr || failure.stdout || failure.message}`);
+    throw new Error(`go build ./cmd/ogre failed:\n${failure.stderr || failure.stdout || failure.message}`);
   }
   return SERVER_BIN;
 }
@@ -147,21 +147,21 @@ export async function portInUse(port) {
 
 /**
  * Says who holds a loopback port, as well as can be told: whether it answers
- * as a godir, and the process id when `lsof` knows it.
+ * as an Ogre server, and the process id when `lsof` knows it.
  *
  * @param {number} port
- * @returns {Promise<string>} for example "a godir (version 0.1.0-dev), pid 4242"
+ * @returns {Promise<string>} for example "an Ogre server (version 0.1.0-dev), pid 4242"
  */
 async function describePortHolder(port) {
   let who = "another program";
   try {
     const response = await fetch(`http://localhost:${port}/-/api/v1/meta`, { signal: AbortSignal.timeout(1000) });
     const meta = /** @type {{ product?: unknown, version?: unknown }} */ (await response.json());
-    if (response.ok && meta.product === "godir") {
-      who = `a godir (version ${String(meta.version)}), perhaps your own or one a killed test run left behind`;
+    if (response.ok && meta.product === "ogre") {
+      who = `an Ogre server (version ${String(meta.version)}), perhaps your own or one a killed test run left behind`;
     }
   } catch {
-    // Not a godir, or not HTTP at all.
+    // Not an Ogre server, or not HTTP at all.
   }
   try {
     const pids = execFileSync("lsof", ["-nP", "-t", `-iTCP:${port}`, "-sTCP:LISTEN"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })
@@ -184,7 +184,7 @@ async function describePortHolder(port) {
  */
 
 /**
- * Starts `godir serve --db <dbPath>` and resolves once GET /-/healthz answers.
+ * Starts `ogre serve --db <dbPath>` and resolves once GET /-/healthz answers.
  *
  * The server listens on its default address, which is the one the extension
  * redirects to. The call refuses to start when that port is already taken:
@@ -193,7 +193,7 @@ async function describePortHolder(port) {
  *
  * @param {object} options
  * @param {string} options.dbPath database file; must be in a directory made by tempDir()
- * @param {string} [options.bin] server binary; defaults to bin/godir
+ * @param {string} [options.bin] server binary; defaults to bin/ogre
  * @param {number} [options.readyTimeout=15000] milliseconds to wait for /-/healthz
  * @returns {Promise<RunningServer>}
  */
@@ -207,14 +207,14 @@ export async function startServer({ dbPath, bin = SERVER_BIN, readyTimeout = 15_
     );
   }
 
-  // The flags decide everything: no GODIR_* setting of the developer's shell
+  // The flags decide everything: no OGRE_* setting of the developer's shell
   // reaches the server, and a home directory under temp means that even a
   // server bug could not touch the real data directory.
-  const home = tempDir("godir-e2e-home-");
+  const home = tempDir("ogre-e2e-home-");
   /** @type {NodeJS.ProcessEnv} */
   const env = { ...process.env, HOME: home, XDG_DATA_HOME: home, LOCALAPPDATA: home, USERPROFILE: home };
   for (const name of Object.keys(env)) {
-    if (name.startsWith("GODIR_")) delete env[name];
+    if (name.startsWith("OGRE_")) delete env[name];
   }
 
   const child = spawn(bin, ["serve", "--db", dbPath], { cwd: home, env, stdio: ["ignore", "pipe", "pipe"] });
@@ -257,7 +257,7 @@ export async function startServer({ dbPath, bin = SERVER_BIN, readyTimeout = 15_
   const deadline = Date.now() + readyTimeout;
   for (;;) {
     const early = await Promise.race([exited, sleep(50).then(() => null)]);
-    if (early !== null) throw new Error(`godir stopped before it was ready (${early}). Its output:\n${output || "(none)"}`);
+    if (early !== null) throw new Error(`ogre stopped before it was ready (${early}). Its output:\n${output || "(none)"}`);
     try {
       const response = await fetch(healthUrl, { signal: AbortSignal.timeout(1000) });
       await response.arrayBuffer();
@@ -267,7 +267,7 @@ export async function startServer({ dbPath, bin = SERVER_BIN, readyTimeout = 15_
     }
     if (Date.now() > deadline) {
       await stop("SIGKILL");
-      throw new Error(`godir did not answer ${healthUrl} within ${readyTimeout} ms. Its output:\n${output || "(none)"}`);
+      throw new Error(`ogre did not answer ${healthUrl} within ${readyTimeout} ms. Its output:\n${output || "(none)"}`);
     }
   }
 
@@ -414,7 +414,7 @@ async function browserCommandLine(context) {
 /** @returns {Promise<{ playwrightDefault: string, replacement: string }>} */
 function discoverFeatureSwitches() {
   featureSwitches ??= (async () => {
-    const context = await chromium.launchPersistentContext(tempDir("godir-e2e-probe-"), {
+    const context = await chromium.launchPersistentContext(tempDir("ogre-e2e-probe-"), {
       channel: "chromium",
       headless: true,
     });
@@ -441,7 +441,7 @@ function discoverFeatureSwitches() {
  */
 async function launch({ userDataDir, args }) {
   const switches = await discoverFeatureSwitches();
-  return chromium.launchPersistentContext(userDataDir ?? tempDir("godir-e2e-profile-"), {
+  return chromium.launchPersistentContext(userDataDir ?? tempDir("ogre-e2e-profile-"), {
     channel: "chromium",
     headless: true,
     args: [switches.replacement, ...args],
@@ -483,7 +483,7 @@ export function dynamicRules(serviceWorker) {
  */
 export async function launchWithExtension({
   extensionDir = EXTENSION_DIR,
-  userDataDir = tempDir("godir-e2e-profile-"),
+  userDataDir = tempDir("ogre-e2e-profile-"),
   waitForRule = true,
   timeout = 15_000,
 } = {}) {

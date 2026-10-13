@@ -5,7 +5,7 @@ import { test } from "node:test";
 
 import { DEFAULT_DIRECTORY_URL, RULE_ID, buildRedirectRule, planRuleUpdate, sameRedirectRule } from "./config.js";
 
-test("the default Directory is a godir started with its defaults", () => {
+test("the default Directory is an Ogre server started with its defaults", () => {
   assert.equal(DEFAULT_DIRECTORY_URL, "http://localhost:4655");
   assert.equal(RULE_ID, 1);
 });
@@ -41,7 +41,7 @@ test("the filter captures everything after go/ for http and https", () => {
     ["http://go/roadmap", "roadmap"],
     ["https://go/roadmap", "roadmap"],
     ["http://go/", ""],
-    ["http://go/gh/godir/pr/12?tab=files#top", "gh/godir/pr/12?tab=files#top"],
+    ["http://go/gh/api-server/pr/12?tab=files#top", "gh/api-server/pr/12?tab=files#top"],
     ["http://go/a%20b%2Fc", "a%20b%2Fc"],
     ["http://go", null],
     ["http://golang.org/doc", null],

@@ -54,7 +54,7 @@ test.beforeAll(async () => {
   test.setTimeout(240_000); // a first build compiles the SQLite driver
 
   buildServer();
-  dbPath = path.join(tempDir("godir-e2e-data-"), "godir.db");
+  dbPath = path.join(tempDir("ogre-e2e-data-"), "ogre.db");
   server = await startServer({ dbPath });
   fixture = await startFixture({ pages: PAGES });
   destination = fixture.url(DESTINATION_PATH);
@@ -67,7 +67,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   // Each step runs whatever the others do: a browser that fails to close
-  // must not leave a godir behind on port 4655.
+  // must not leave an Ogre server behind on port 4655.
   const results = await Promise.allSettled([browser?.close(), fixture?.close(), server?.stop()]);
   for (const result of results) {
     if (result.status === "rejected") throw result.reason;
@@ -80,8 +80,8 @@ test.afterAll(async () => {
 
 test.afterEach(async ({}, testInfo) => {
   if (testInfo.status !== testInfo.expectedStatus && server) {
-    await testInfo.attach("godir output", { body: server.output() || "(none)", contentType: "text/plain" });
-    console.log(`--- godir output ---\n${server.output() || "(none)"}\n--- end of godir output ---`);
+    await testInfo.attach("ogre output", { body: server.output() || "(none)", contentType: "text/plain" });
+    console.log(`--- ogre output ---\n${server.output() || "(none)"}\n--- end of ogre output ---`);
   }
 });
 
@@ -252,7 +252,7 @@ test("the Directory's page has no serious accessibility issue", async () => {
   // runs in the harness before L3 adds the real pages.
   await open(`${DIRECTORY_URL}/-/`, async (page, response) => {
     expect(response?.status()).toBe(200);
-    await expect(page.locator("h1")).toHaveText("godir is running");
+    await expect(page.locator("h1")).toHaveText("Ogre is running");
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.passes.length).toBeGreaterThan(0); // axe really ran against the page
     const serious = results.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical");
@@ -303,7 +303,7 @@ test("saved links survive a restart of the server", async () => {
     // SIGTERM must end in a clean exit, not in the process simply dying from
     // the signal: exit code 0, and the server saying it has stopped.
     expect(await server?.stop("SIGTERM")).toBe("exit code 0");
-    expect(server?.output()).toContain("godir has stopped");
+    expect(server?.output()).toContain("ogre has stopped");
     // Proof that the server is really gone, so that the landing below can only
     // come from the new process.
     const whileStopped = await open("http://go/roadmap", async () => {}).then(

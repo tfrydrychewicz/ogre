@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tfrydrychewicz/godir/internal/app"
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/app"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
 )
 
 func TestMeta(t *testing.T) {
@@ -22,7 +22,7 @@ func TestMeta(t *testing.T) {
 	if got := rec.Header().Get("Content-Type"); got != "application/json" {
 		t.Errorf("Content-Type = %q", got)
 	}
-	want := decodeJSON(t, `{"product":"godir","version":"9.9.9-test","api":1}`)
+	want := decodeJSON(t, `{"product":"ogre","version":"9.9.9-test","api":1}`)
 	if got := decodeJSON(t, rec.Body.String()); !reflect.DeepEqual(got, want) {
 		t.Errorf("meta = %s", rec.Body.String())
 	}
@@ -172,7 +172,7 @@ func TestCreateLinkErrors(t *testing.T) {
 		{"name taken", app.ErrNameTaken, http.StatusConflict, "link.name_taken", `{}`},
 		{"name taken, wrapped", fmt.Errorf("create: %w", app.ErrNameTaken), http.StatusConflict, "link.name_taken", `{}`},
 		{"forbidden", app.ErrForbidden, http.StatusForbidden, codeForbidden, `{}`},
-		{"anything else", errors.New("disk I/O error: /secret/path/godir.db"), http.StatusInternalServerError, codeInternal, `{}`},
+		{"anything else", errors.New("disk I/O error: /secret/path/ogre.db"), http.StatusInternalServerError, codeInternal, `{}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
 
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
 )
 
 // CreateLink stores l and its routes in one transaction; see Store.

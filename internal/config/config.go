@@ -1,5 +1,5 @@
 // Package config turns command-line flags and environment variables into the
-// settings of "godir serve", and holds the rule that keeps a Directory without
+// settings of "ogre serve", and holds the rule that keeps a Directory without
 // sign-in off the network.
 //
 // It reads nothing itself: Load is given the arguments and an environment
@@ -20,23 +20,23 @@ import (
 	"strings"
 )
 
-// DefaultAddr is where godir listens unless told otherwise. "localhost" means
+// DefaultAddr is where ogre listens unless told otherwise. "localhost" means
 // both loopback addresses, 127.0.0.1 and ::1. 4655 spells GOLK on a phone
 // keypad. The extension's default Directory URL is this address.
 const DefaultAddr = "localhost:4655"
 
 // DBFileName is the database file's name inside the data directory.
-const DBFileName = "godir.db"
+const DBFileName = "ogre.db"
 
 // Environment variables. A flag, when given, wins over its variable.
 const (
-	EnvAddr       = "GODIR_ADDR"
-	EnvDB         = "GODIR_DB"
-	EnvAllowHosts = "GODIR_ALLOW_HOSTS"
-	EnvLogLevel   = "GODIR_LOG_LEVEL"
+	EnvAddr       = "OGRE_ADDR"
+	EnvDB         = "OGRE_DB"
+	EnvAllowHosts = "OGRE_ALLOW_HOSTS"
+	EnvLogLevel   = "OGRE_LOG_LEVEL"
 )
 
-// Config is everything "godir serve" needs to start.
+// Config is everything "ogre serve" needs to start.
 type Config struct {
 	// Addr is the listen address, "host:port".
 	Addr string
@@ -163,7 +163,7 @@ func Usage() string {
 	var h hostList
 	var t bool
 	fs := newFlagSet(&s, &s, &s, &h, &t, &t)
-	b.WriteString("Flags of godir serve:\n")
+	b.WriteString("Flags of ogre serve:\n")
 	fs.VisitAll(func(f *flag.Flag) {
 		// Written out rather than left to PrintDefaults, to show flags with
 		// two dashes, the way the error messages and the documentation do.
@@ -188,7 +188,7 @@ func newFlagSet(addr, db, logLevel *string, hosts *hostList, dev, allowNetwork *
 	fs.Var(hosts, "allow-host", "extra Host header `value` to serve, such as \"go\"; repeat the flag or separate values with commas (env "+EnvAllowHosts+")")
 	fs.StringVar(logLevel, "log-level", "", "debug, info, warn or error (default \"info\"; env "+EnvLogLevel+")")
 	fs.BoolVar(dev, "dev", false, "serve templates and static files from disk (no effect yet: it arrives with the web UI)")
-	fs.BoolVar(allowNetwork, "allow-unauthenticated-network", false, "allow listening beyond this computer although godir has no sign-in")
+	fs.BoolVar(allowNetwork, "allow-unauthenticated-network", false, "allow listening beyond this computer although ogre has no sign-in")
 	return fs
 }
 

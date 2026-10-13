@@ -3,7 +3,7 @@ package app
 import (
 	"testing"
 
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
 )
 
 func TestCanEdit(t *testing.T) {

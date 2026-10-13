@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
 )
 
 // openTemp opens a store on a fresh temporary database and closes it when the
 // test ends.
 func openTemp(t *testing.T) *SQLite {
 	t.Helper()
-	return openAt(t, filepath.Join(t.TempDir(), "godir.db"))
+	return openAt(t, filepath.Join(t.TempDir(), "ogre.db"))
 }
 
 func openAt(t *testing.T, path string) *SQLite {
@@ -102,7 +102,7 @@ func backups(t *testing.T, dbPath string) []string {
 
 func TestOpenFresh(t *testing.T) {
 	// A parent directory that does not exist yet, as on a first run.
-	path := filepath.Join(t.TempDir(), "data", "godir", "godir.db")
+	path := filepath.Join(t.TempDir(), "data", "ogre", "ogre.db")
 	s := openAt(t, path)
 
 	if got := schemaVersion(t, s); got != 1 {
@@ -185,7 +185,7 @@ func TestPragmas(t *testing.T) {
 
 func TestReopenIsIdempotent(t *testing.T) {
 	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "godir.db")
+	path := filepath.Join(t.TempDir(), "ogre.db")
 
 	s := openAt(t, path)
 	user, err := s.LocalUser(ctx)
@@ -444,7 +444,7 @@ func TestListLinksRejectsACorruptTime(t *testing.T) {
 // the copy. The saved link must be there although nothing was checkpointed
 // or closed.
 func TestSavedLinkSurvivesWithoutClose(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "godir.db")
+	path := filepath.Join(t.TempDir(), "ogre.db")
 	s := openAt(t, path)
 	link := sampleLink(t, s, "roadmap")
 
@@ -453,7 +453,7 @@ func TestSavedLinkSurvivesWithoutClose(t *testing.T) {
 		t.Fatalf("expected a non-empty write-ahead log next to the open database: info %v, err %v", wal, err)
 	}
 
-	crashed := filepath.Join(t.TempDir(), "godir.db")
+	crashed := filepath.Join(t.TempDir(), "ogre.db")
 	copyFile(t, path, crashed)
 	copyFile(t, path+"-wal", crashed+"-wal")
 	// The -shm file is left out on purpose: it does not survive a reboot.
@@ -473,13 +473,13 @@ func TestSavedLinkSurvivesWithoutClose(t *testing.T) {
 
 // helperDBEnv, when set, turns TestKillHelper into the child process of
 // TestSavedLinkSurvivesKill.
-const helperDBEnv = "GODIR_STORE_TEST_HELPER_DB"
+const helperDBEnv = "OGRE_STORE_TEST_HELPER_DB"
 
 // TestSavedLinkSurvivesKill is NFR-7 for a crashing process: a child saves a
 // link, reports that the save was acknowledged, and is killed with SIGKILL
 // before it can close anything.
 func TestSavedLinkSurvivesKill(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "godir.db")
+	path := filepath.Join(t.TempDir(), "ogre.db")
 
 	cmd := exec.Command(os.Args[0], "-test.run=^TestKillHelper$")
 	cmd.Env = append(os.Environ(), helperDBEnv+"="+path)

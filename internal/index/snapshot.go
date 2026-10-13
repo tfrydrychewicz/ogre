@@ -11,7 +11,7 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
 )
 
 // Snapshot is the set of links at one moment, keyed by normalized name. It

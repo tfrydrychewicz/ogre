@@ -114,7 +114,7 @@ func TestCompiledLinkMatch(t *testing.T) {
 	link := Link{Name: "gh", Routes: []Route{
 		{ID: 1, Pattern: "gh", Destination: "https://github.com/acme"},
 		{ID: 2, Pattern: "gh/new", Destination: "https://github.com/new"},
-		// Not something godir would save; it must simply never match.
+		// Not something Ogre would save; it must simply never match.
 		{ID: 3, Pattern: "gh/{repo}", Destination: "https://github.com/acme/x"},
 		{ID: 4, Pattern: "", Destination: "https://example.com/empty"},
 	}}

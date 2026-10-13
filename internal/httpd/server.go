@@ -1,4 +1,4 @@
-// Package httpd is the HTTP face of godir: the listeners, the request guards
+// Package httpd is the HTTP face of Ogre: the listeners, the request guards
 // of local mode, the routing between the resolver and everything under "/-/",
 // and the JSON API.
 //
@@ -13,8 +13,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/tfrydrychewicz/godir/internal/app"
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/app"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
 )
 
 // Service is what the HTTP layer needs from the use cases. It is an interface
@@ -108,7 +108,7 @@ func (s *Server) dispatch(w http.ResponseWriter, r *http.Request, entry *logEntr
 		entry.area = areaHostRejected
 		writeText(w, r, http.StatusForbidden,
 			"403 Forbidden: this Directory does not answer to that host name.\n"+
-				"If the name is yours, start godir with --allow-host <name>.\n")
+				"If the name is yours, start ogre with --allow-host <name>.\n")
 		return
 	}
 

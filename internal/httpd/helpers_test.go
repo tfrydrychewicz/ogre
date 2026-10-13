@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tfrydrychewicz/godir/internal/app"
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/app"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
 )
 
 const (

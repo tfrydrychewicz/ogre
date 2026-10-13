@@ -13,10 +13,10 @@ import (
 	"strconv"
 )
 
-// ErrSchemaNewer means the database was written by a newer godir than this
+// ErrSchemaNewer means the database was written by a newer Ogre than this
 // binary. Open refuses it: running old code against an unknown schema risks
-// the data, and the fix is simply to run the newer godir.
-var ErrSchemaNewer = errors.New("the database was written by a newer version of godir")
+// the data, and the fix is simply to run the newer Ogre.
+var ErrSchemaNewer = errors.New("the database was written by a newer version of ogre")
 
 //go:embed migrations/*.sql
 var embeddedMigrations embed.FS
@@ -130,14 +130,14 @@ func (s *SQLite) SchemaVersion(ctx context.Context) (int, error) {
 // knows and returns the ones still to apply.
 func pendingAfter(applied []appliedMigration, known []migration) ([]migration, error) {
 	if n := len(applied); n > 0 && applied[n-1].version > len(known) {
-		return nil, fmt.Errorf("%w: it is at schema version %d and this godir knows up to %d",
+		return nil, fmt.Errorf("%w: it is at schema version %d and this ogre knows up to %d",
 			ErrSchemaNewer, applied[n-1].version, len(known))
 	}
 	for i, a := range applied {
 		// The newest version is within range, so a longer history has repeats
 		// or gaps; it cannot be indexed against known.
 		if i >= len(known) || a.version != known[i].version || a.name != known[i].name {
-			return nil, fmt.Errorf("the migration history does not match this godir: entry %d is %04d %q", i+1, a.version, a.name)
+			return nil, fmt.Errorf("the migration history does not match this ogre: entry %d is %04d %q", i+1, a.version, a.name)
 		}
 	}
 	return known[len(applied):], nil
@@ -190,7 +190,7 @@ func (s *SQLite) applyMigration(ctx context.Context, m migration) (err error) {
 )`); err != nil {
 		return err
 	}
-	// Holding the write lock, look again: another godir starting at the same
+	// Holding the write lock, look again: another ogre starting at the same
 	// moment may have applied this migration while we waited for the lock.
 	var current int
 	if err = tx.QueryRowContext(ctx, `SELECT coalesce(max(version), 0) FROM schema_migrations`).Scan(&current); err != nil {

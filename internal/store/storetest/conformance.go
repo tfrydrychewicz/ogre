@@ -1,5 +1,5 @@
 // Package storetest is the conformance suite for store.Store: the behaviour
-// the rest of godir relies on, written against the interface alone.
+// the rest of Ogre relies on, written against the interface alone.
 //
 // It lives in its own package, outside any _test file, so that a second
 // implementation in another package can run exactly the same checks as the
@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
-	"github.com/tfrydrychewicz/godir/internal/store"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/store"
 )
 
 // Factory returns a new, empty store for one test and arranges, with

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
 )
 
 // localActor is the actor every test acts as unless it says otherwise.

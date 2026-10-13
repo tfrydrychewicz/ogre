@@ -1,6 +1,6 @@
 package app
 
-import "github.com/tfrydrychewicz/godir/internal/linkmodel"
+import "github.com/tfrydrychewicz/ogre/internal/linkmodel"
 
 // DecisionKind says what the resolver decided to do with a request.
 type DecisionKind int

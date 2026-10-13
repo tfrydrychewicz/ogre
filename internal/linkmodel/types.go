@@ -1,4 +1,4 @@
-// Package linkmodel is the pure core of godir: the shape of a link, the rules
+// Package linkmodel is the pure core of Ogre: the shape of a link, the rules
 // for what a valid link looks like, and how a request path is cut into
 // segments. It performs no I/O and imports only the standard library, so the
 // same rules can be exercised by the server, the API validation endpoint and

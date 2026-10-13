@@ -1,7 +1,7 @@
-# godir: build, run and check.
+# Ogre: build, run and check.
 #
 #   make run      start the Directory from source (ARGS="--db /tmp/x.db" passes flags)
-#   make build    compile bin/godir
+#   make build    compile bin/ogre
 #   make test     Go tests, with the race detector
 #   make fuzz     every fuzz target, FUZZTIME each (default 10s)
 #   make e2e      end-to-end tests in headless Chromium with the extension
@@ -27,10 +27,10 @@ BROWSER_DIRS := internal/web/static extension
         fmt-check vet staticcheck typecheck test-extension dom-guard
 
 run:
-	go run ./cmd/godir $(ARGS)
+	go run ./cmd/ogre $(ARGS)
 
 build:
-	go build -ldflags "-X main.version=$(VERSION)" -o bin/godir ./cmd/godir
+	go build -ldflags "-X main.version=$(VERSION)" -o bin/ogre ./cmd/ogre
 
 test:
 	go test -race -count=1 $(GO_PACKAGES)

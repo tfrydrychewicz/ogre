@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
 )
 
 func TestCreateThenResolve(t *testing.T) {

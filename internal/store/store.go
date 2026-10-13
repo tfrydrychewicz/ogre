@@ -1,5 +1,5 @@
 // Package store persists links and users. It defines the Store interface the
-// rest of godir depends on and its SQLite implementation.
+// rest of Ogre depends on and its SQLite implementation.
 //
 // It is the only package that imports the database driver, so a second
 // implementation (the plan allows for Postgres) can be added without touching
@@ -16,7 +16,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
 )
 
 // Errors a Store returns for conditions a caller is expected to handle. Test

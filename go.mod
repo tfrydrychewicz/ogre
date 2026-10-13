@@ -1,4 +1,4 @@
-module github.com/tfrydrychewicz/godir
+module github.com/tfrydrychewicz/ogre
 
 go 1.26.0
 

@@ -7,13 +7,13 @@ import (
 	"runtime"
 )
 
-// appDirName is the directory godir keeps under the platform's data location.
-const appDirName = "godir"
+// appDirName is the directory Ogre keeps under the platform's data location.
+const appDirName = "ogre"
 
 // DefaultDataDir returns the per-user directory for the database, backups and
-// logs: ~/Library/Application Support/godir on macOS, $XDG_DATA_HOME/godir
-// (or ~/.local/share/godir) on Linux and other Unix systems, and
-// %LocalAppData%\godir on Windows.
+// logs: ~/Library/Application Support/ogre on macOS, $XDG_DATA_HOME/ogre
+// (or ~/.local/share/ogre) on Linux and other Unix systems, and
+// %LocalAppData%\ogre on Windows.
 //
 // The data lives there rather than next to the binary or in a source
 // checkout, so updating or deleting the program never touches a user's links.
@@ -41,7 +41,7 @@ func dataDir(goos string, getenv func(string) string) (string, error) {
 		return filepath.Join(home, "Library", "Application Support", appDirName), nil
 	default:
 		// The XDG specification says a relative value is invalid and must be
-		// ignored; it would otherwise put the database wherever godir was
+		// ignored; it would otherwise put the database wherever ogre was
 		// started from.
 		if dir := getenv("XDG_DATA_HOME"); filepath.IsAbs(dir) {
 			return filepath.Join(dir, appDirName), nil

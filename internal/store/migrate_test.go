@@ -23,7 +23,7 @@ func known(t *testing.T) []migration {
 }
 
 // withNext returns the shipped migrations followed by one more, standing in
-// for the next godir release.
+// for the next Ogre release.
 func withNext(t *testing.T, name, sql string) []migration {
 	t.Helper()
 	m := known(t)
@@ -187,10 +187,10 @@ func TestPendingAfter(t *testing.T) {
 }
 
 // TestBackupBeforePendingMigration plays an upgrade: a database written by
-// this godir is opened by one that knows a further migration.
+// this Ogre is opened by one that knows a further migration.
 func TestBackupBeforePendingMigration(t *testing.T) {
 	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "godir.db")
+	path := filepath.Join(t.TempDir(), "ogre.db")
 
 	s := openWith(t, path, known(t))
 	link := sampleLink(t, s, "roadmap")
@@ -213,11 +213,11 @@ func TestBackupBeforePendingMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got, want := backups(t, path), []string{"godir.db.bak-1"}; !reflect.DeepEqual(got, want) {
+	if got, want := backups(t, path), []string{"ogre.db.bak-1"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("backups = %v, want %v", got, want)
 	}
 
-	// The backup is a complete version-1 database: the old godir opens it,
+	// The backup is a complete version-1 database: the old Ogre opens it,
 	// finds the link, and has nothing to migrate.
 	backup := path + ".bak-1"
 	b := openWith(t, backup, known(t))
@@ -251,11 +251,11 @@ func TestBackupBeforePendingMigration(t *testing.T) {
 // TestBackupIncludesUncheckpointedWrites upgrades a database whose latest
 // link is still only in the write-ahead log, as after a crash.
 func TestBackupIncludesUncheckpointedWrites(t *testing.T) {
-	src := filepath.Join(t.TempDir(), "godir.db")
+	src := filepath.Join(t.TempDir(), "ogre.db")
 	s := openWith(t, src, known(t))
 	sampleLink(t, s, "roadmap")
 
-	path := filepath.Join(t.TempDir(), "godir.db")
+	path := filepath.Join(t.TempDir(), "ogre.db")
 	copyFile(t, src, path)
 	copyFile(t, src+"-wal", path+"-wal")
 
@@ -271,7 +271,7 @@ func TestBackupIncludesUncheckpointedWrites(t *testing.T) {
 }
 
 func TestBackupNeverOverwritesAnEarlierOne(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "godir.db")
+	path := filepath.Join(t.TempDir(), "ogre.db")
 	s := openWith(t, path, known(t))
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
@@ -291,7 +291,7 @@ func TestBackupNeverOverwritesAnEarlierOne(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := []string{"godir.db.bak-1", "godir.db.bak-1.2", "godir.db.bak-1.3"}
+	want := []string{"ogre.db.bak-1", "ogre.db.bak-1.2", "ogre.db.bak-1.3"}
 	if got := backups(t, path); !reflect.DeepEqual(got, want) {
 		t.Fatalf("backups = %v, want %v", got, want)
 	}
@@ -309,7 +309,7 @@ func TestBackupNeverOverwritesAnEarlierOne(t *testing.T) {
 // TestBackupOfUnmigratedDatabase covers a file that holds data but has never
 // been migrated (schema version 0): it is copied aside as .bak-0.
 func TestBackupOfUnmigratedDatabase(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "godir.db")
+	path := filepath.Join(t.TempDir(), "ogre.db")
 	raw, err := sql.Open("sqlite", dsn(path))
 	if err != nil {
 		t.Fatal(err)
@@ -328,7 +328,7 @@ func TestBackupOfUnmigratedDatabase(t *testing.T) {
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := backups(t, path), []string{"godir.db.bak-0"}; !reflect.DeepEqual(got, want) {
+	if got, want := backups(t, path), []string{"ogre.db.bak-0"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("backups = %v, want %v", got, want)
 	}
 
@@ -350,7 +350,7 @@ func TestBackupOfUnmigratedDatabase(t *testing.T) {
 }
 
 func TestNoBackupOfAnEmptyFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "godir.db")
+	path := filepath.Join(t.TempDir(), "ogre.db")
 	if err := os.WriteFile(path, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -364,7 +364,7 @@ func TestNoBackupOfAnEmptyFile(t *testing.T) {
 }
 
 func TestRefusesANewerDatabase(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "godir.db")
+	path := filepath.Join(t.TempDir(), "ogre.db")
 	s := openWith(t, path, withNext(t, "0002_test", `CREATE TABLE added_in_two (x INTEGER)`))
 	sampleLink(t, s, "roadmap")
 	if err := s.Close(); err != nil {
@@ -374,7 +374,7 @@ func TestRefusesANewerDatabase(t *testing.T) {
 	old, err := open(context.Background(), path, known(t))
 	if err == nil {
 		_ = old.Close()
-		t.Fatal("an older godir opened a database with a newer schema")
+		t.Fatal("an older ogre opened a database with a newer schema")
 	}
 	if !errors.Is(err, ErrSchemaNewer) {
 		t.Errorf("error = %v, want ErrSchemaNewer", err)
@@ -384,7 +384,7 @@ func TestRefusesANewerDatabase(t *testing.T) {
 	if got := backups(t, path); len(got) != 0 {
 		t.Errorf("the refused open made backups: %v", got)
 	}
-	// The newer godir still finds everything as it left it.
+	// The newer Ogre still finds everything as it left it.
 	s = openWith(t, path, withNext(t, "0002_test", `CREATE TABLE added_in_two (x INTEGER)`))
 	if got := schemaVersion(t, s); got != 2 {
 		t.Errorf("schema version = %d, want 2", got)
@@ -395,7 +395,7 @@ func TestRefusesANewerDatabase(t *testing.T) {
 }
 
 func TestFailedMigrationChangesNothing(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "godir.db")
+	path := filepath.Join(t.TempDir(), "ogre.db")
 	s := openWith(t, path, known(t))
 	sampleLink(t, s, "roadmap")
 	if err := s.Close(); err != nil {
@@ -423,13 +423,13 @@ func TestFailedMigrationChangesNothing(t *testing.T) {
 	if n := count(t, s, `SELECT count(*) FROM links`); n != 1 {
 		t.Errorf("links = %d, want 1", n)
 	}
-	if got, want := backups(t, path), []string{"godir.db.bak-1"}; !reflect.DeepEqual(got, want) {
+	if got, want := backups(t, path), []string{"ogre.db.bak-1"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("backups = %v, want %v (taken before the attempt)", got, want)
 	}
 }
 
 func TestRefusesAMismatchedHistory(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "godir.db")
+	path := filepath.Join(t.TempDir(), "ogre.db")
 	s := openWith(t, path, known(t))
 	if _, err := s.db.Exec(`UPDATE schema_migrations SET name = '0001_something_else'`); err != nil {
 		t.Fatal(err)
@@ -448,10 +448,10 @@ func TestRefusesAMismatchedHistory(t *testing.T) {
 	}
 }
 
-// TestApplyMigrationSkipsOneAlreadyApplied covers two godir processes
+// TestApplyMigrationSkipsOneAlreadyApplied covers two ogre processes
 // starting together: the loser of the race finds the migration done.
 func TestApplyMigrationSkipsOneAlreadyApplied(t *testing.T) {
-	s := openWith(t, filepath.Join(t.TempDir(), "godir.db"), known(t))
+	s := openWith(t, filepath.Join(t.TempDir(), "ogre.db"), known(t))
 	if err := s.applyMigration(context.Background(), known(t)[0]); err != nil {
 		t.Fatalf("applying an already applied migration: %v", err)
 	}
@@ -469,7 +469,7 @@ func TestApplyMigrationSkipsOneAlreadyApplied(t *testing.T) {
 // migration must not run. The copy is the only safety net for links that
 // exist nowhere else, and this is exactly when it would be missing.
 func TestFailedBackupStopsTheMigration(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "godir.db")
+	path := filepath.Join(t.TempDir(), "ogre.db")
 	s := openWith(t, path, known(t))
 	sampleLink(t, s, "roadmap")
 	if err := s.Close(); err != nil {
@@ -503,7 +503,7 @@ func TestFailedBackupStopsTheMigration(t *testing.T) {
 		t.Errorf("links = %d, want 1", n)
 	}
 	// Only the obstacle is there: nothing that could be taken for a backup.
-	if got := backups(t, path); len(got) != 1 || got[0] != "godir.db.bak-1.tmp" {
+	if got := backups(t, path); len(got) != 1 || got[0] != "ogre.db.bak-1.tmp" {
 		t.Errorf("a failed backup left files that look like backups: %v", got)
 	}
 }

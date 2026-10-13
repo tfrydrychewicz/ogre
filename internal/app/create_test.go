@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
 )
 
 func TestCreateLinkReturnsTheSavedLink(t *testing.T) {

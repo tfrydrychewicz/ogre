@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tfrydrychewicz/godir/internal/store"
+	"github.com/tfrydrychewicz/ogre/internal/store"
 )
 
 // The other tests run against a fake store. This one runs the use cases over
@@ -15,7 +15,7 @@ import (
 // a link survives a restart (the L1 "done when").
 func TestUseCasesOverSQLite(t *testing.T) {
 	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "godir.db")
+	path := filepath.Join(t.TempDir(), "ogre.db")
 
 	st, err := store.Open(ctx, path)
 	if err != nil {

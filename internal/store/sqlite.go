@@ -15,7 +15,7 @@ import (
 )
 
 // busyTimeoutMillis is how long a statement waits for another process holding
-// the database (a second godir, a backup tool) before giving up.
+// the database (a second ogre, a backup tool) before giving up.
 const busyTimeoutMillis = 5000
 
 // SQLite is the Store kept in a single SQLite file.
@@ -39,7 +39,7 @@ var _ Store = (*SQLite)(nil)
 // If the file already holds data and schema changes are pending, the database
 // is first copied to path + ".bak-<current schema version>": a personal
 // Directory holds links that exist nowhere else, so a failed upgrade must
-// never be the only copy. Open refuses a database written by a newer godir
+// never be the only copy. Open refuses a database written by a newer Ogre
 // (ErrSchemaNewer) rather than guess at a schema it does not know.
 func Open(ctx context.Context, path string) (*SQLite, error) {
 	migrations, err := loadMigrations(embeddedMigrations, "migrations")

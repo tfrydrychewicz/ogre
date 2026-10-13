@@ -1,6 +1,6 @@
-# Ogre, the godir extension
+# The Ogre extension
 
-A Manifest V3 extension for Chrome. It sends every go link you open (`go/name`, `http://go/name`, `https://go/name`) to your godir Directory, which by default runs at `http://localhost:4655`.
+A Manifest V3 extension for Chrome. It sends every go link you open (`go/name`, `http://go/name`, `https://go/name`) to your Directory, the Ogre server, which by default runs at `http://localhost:4655`.
 
 There is no build step. To load it, open `chrome://extensions`, switch on "Developer mode", choose "Load unpacked", and select this directory.
 

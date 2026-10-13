@@ -216,7 +216,7 @@ Check 11 was the result most likely to differ on Chrome stable. It did not: the 
 |---|---|
 | Stack | The owner confirmed Go on 2026-10-13, after comparing it with Node.js. |
 | Name matching (Q5) | The owner decided on 2026-10-13: names ignore case only; `-` and `_` are significant. |
-| Working name `godir` | Used throughout the spike. Since decided for the extension, which is called Ogre; `godir` remains the working name of the server (Q8). |
+| Working name `godir` | Used throughout the spike. Since replaced: the owner decided on 2026-10-13 that the whole product is called Ogre (Q8). |
 | Port 4655 | Used by every run; free on the development machine each time. |
 | Address-bar keyword `go/` for L6.8 | Confirmed: check 15 passes by proxy, and by hand for one typed link in a profile that already knew the host (step K). Keyword mode itself (Tab or Space after `go/`) was not tried by hand. |
 

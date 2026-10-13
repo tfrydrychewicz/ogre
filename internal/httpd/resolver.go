@@ -3,7 +3,7 @@ package httpd
 import (
 	"net/http"
 
-	"github.com/tfrydrychewicz/godir/internal/app"
+	"github.com/tfrydrychewicz/ogre/internal/app"
 )
 
 // decisionRefused is what the request log says, in place of a decision, for a

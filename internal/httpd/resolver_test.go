@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tfrydrychewicz/godir/internal/app"
+	"github.com/tfrydrychewicz/ogre/internal/app"
 )
 
 func TestResolverResponses(t *testing.T) {

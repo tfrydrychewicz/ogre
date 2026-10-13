@@ -1,5 +1,5 @@
-// Package app holds godir's use cases: resolving a request and creating and
-// listing links.
+// Package app holds the Ogre server's use cases: resolving a request and
+// creating and listing links.
 //
 // It is the only package that writes through the store (plan section 3.2).
 // Every use case that reads or changes data on someone's behalf takes an
@@ -13,9 +13,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/tfrydrychewicz/godir/internal/index"
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
-	"github.com/tfrydrychewicz/godir/internal/store"
+	"github.com/tfrydrychewicz/ogre/internal/index"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/store"
 )
 
 // App is the set of use cases over one store. Create it with New. Its methods

@@ -1,6 +1,6 @@
 package app
 
-import "github.com/tfrydrychewicz/godir/internal/linkmodel"
+import "github.com/tfrydrychewicz/ogre/internal/linkmodel"
 
 // The permission rules live here, in one place, so that sign-in only has to
 // change these functions and never the use cases or the HTTP layer (plan

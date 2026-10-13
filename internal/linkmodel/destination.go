@@ -40,8 +40,8 @@ const (
 // splitting starts. Other non-ASCII text is allowed and kept exactly as
 // written; the HTTP layer percent-encodes it when it sends the destination.
 //
-// Credentials ("https://user:secret@host/") are allowed: PRD 5.4 names them
-// as a part of a destination.
+// Credentials ("https://user:secret@host/") are still accepted in this first
+// cut. PRD 5.4 forbids them; the check arrives with L2.4.
 //
 // L1 first cut: placeholders arrive in L2, so "{" and "}" are reported as
 // CodeDestinationPlaceholderUnsupported. The rule that a destination may not

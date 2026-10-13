@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
 )
 
 func link(id int64, name string, routes ...linkmodel.Route) linkmodel.Link {

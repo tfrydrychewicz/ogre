@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tfrydrychewicz/godir/internal/app"
-	"github.com/tfrydrychewicz/godir/internal/web"
+	"github.com/tfrydrychewicz/ogre/internal/app"
+	"github.com/tfrydrychewicz/ogre/internal/web"
 )
 
 // A header value of "-" in these tables means "do not send the header".
@@ -92,7 +92,7 @@ func TestWriteGuards(t *testing.T) {
 
 // A browser sends each of these headers once. A request that repeats one, or
 // sends it empty, is refused whichever copy is the acceptable one: the guard
-// must not depend on the order in which something in front of godir happened
+// must not depend on the order in which something in front of Ogre happened
 // to forward the headers.
 func TestWriteGuardsJudgeEachHeaderAsAWhole(t *testing.T) {
 	const own = "http://localhost:4655"

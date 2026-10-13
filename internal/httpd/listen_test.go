@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tfrydrychewicz/godir/internal/app"
+	"github.com/tfrydrychewicz/ogre/internal/app"
 )
 
 // freePort returns a port that was free a moment ago on both loopback
@@ -150,7 +150,7 @@ func TestListenAndServe(t *testing.T) {
 			}
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			want := decodeJSON(t, `{"product":"godir","version":"9.9.9-test","api":1}`)
+			want := decodeJSON(t, `{"product":"ogre","version":"9.9.9-test","api":1}`)
 			if resp.StatusCode != http.StatusOK || !reflect.DeepEqual(decodeJSON(t, string(body)), want) {
 				t.Errorf("%s: status %d, body %s", host, resp.StatusCode, body)
 			}
@@ -206,7 +206,7 @@ func TestListenAndServe(t *testing.T) {
 		}
 	})
 
-	t.Run("a second godir on the port is told so", func(t *testing.T) {
+	t.Run("a second ogre on the port is told so", func(t *testing.T) {
 		second := New(&fakeService{}, Options{Addr: addr, Version: "second"})
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -214,8 +214,8 @@ func TestListenAndServe(t *testing.T) {
 		if err == nil {
 			t.Fatal("second server started on a port that is taken")
 		}
-		if !strings.Contains(err.Error(), "another godir") || !strings.Contains(err.Error(), testVersion) {
-			t.Errorf("error does not say another godir (version %s) holds the port: %v", testVersion, err)
+		if !strings.Contains(err.Error(), "another ogre") || !strings.Contains(err.Error(), testVersion) {
+			t.Errorf("error does not say another ogre (version %s) holds the port: %v", testVersion, err)
 		}
 		if !isAddrInUse(err) {
 			t.Errorf("error does not wrap EADDRINUSE: %v", err)
@@ -296,7 +296,7 @@ func TestListenOnPortHeldByAnotherProgram(t *testing.T) {
 		{"a web server answering HTML", respond(200, "text/html", "<html>hello</html>")},
 		{"another product's meta", respond(200, "application/json", `{"product":"something-else","version":"1","api":1}`)},
 		{"JSON without a product", respond(200, "application/json", `{}`)},
-		{"godir's name behind an error status", respond(500, "application/json", `{"product":"godir","version":"1","api":1}`)},
+		{"ogre's name behind an error status", respond(500, "application/json", `{"product":"ogre","version":"1","api":1}`)},
 		{"a redirect", respond(302, "text/plain", "")},
 		{"not HTTP at all", func(c net.Conn) { _, _ = c.Write([]byte("SSH-2.0-OpenSSH\r\n")) }},
 		{"closes at once", func(net.Conn) {}},
@@ -328,7 +328,7 @@ func TestListenOnPortHeldByAnotherProgram(t *testing.T) {
 				if err == nil {
 					t.Fatalf("%s: started on a port that is taken", addr)
 				}
-				if !strings.Contains(err.Error(), "another program") || strings.Contains(err.Error(), "another godir") {
+				if !strings.Contains(err.Error(), "another program") || strings.Contains(err.Error(), "another ogre") {
 					t.Errorf("%s: error does not say another program holds the port: %v", addr, err)
 				}
 				if !isAddrInUse(err) {
@@ -459,7 +459,7 @@ func TestLocalhostListensOnLoopbackOnly(t *testing.T) {
 
 // Listening is a step of its own: the port is held from Listen on, so a
 // caller can do slow or irreversible work (open the database) knowing no
-// other godir has the address, and nothing is answered until Serve.
+// other ogre has the address, and nothing is answered until Serve.
 func TestListenThenServe(t *testing.T) {
 	port := freePort(t)
 	addr := "127.0.0.1:" + port
@@ -547,7 +547,7 @@ func TestLocalhostRefusesWhenIPv6PortIsTaken(t *testing.T) {
 	t.Run("by another program", func(t *testing.T) {
 		holder, port := hold(t)
 		defer holder.Close()
-		go func() { // hang up on the "are you a godir?" question at once
+		go func() { // hang up on the "are you an ogre?" question at once
 			for {
 				c, err := holder.Accept()
 				if err != nil {
@@ -573,7 +573,7 @@ func TestLocalhostRefusesWhenIPv6PortIsTaken(t *testing.T) {
 		}
 	})
 
-	t.Run("by another godir", func(t *testing.T) {
+	t.Run("by another ogre", func(t *testing.T) {
 		holder, port := hold(t)
 		holder.Close()
 		first := New(&fakeService{}, Options{Addr: "[::1]:" + port, Version: testVersion})
@@ -603,15 +603,15 @@ func TestLocalhostRefusesWhenIPv6PortIsTaken(t *testing.T) {
 		refused, cancelRefused := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancelRefused()
 		err := New(&fakeService{}, Options{Addr: "localhost:" + port}).ListenAndServe(refused)
-		if err == nil || !strings.Contains(err.Error(), "another godir") || !strings.Contains(err.Error(), testVersion) {
-			t.Errorf("error = %v, want one saying another godir (version %s) is running", err, testVersion)
+		if err == nil || !strings.Contains(err.Error(), "another ogre") || !strings.Contains(err.Error(), testVersion) {
+			t.Errorf("error = %v, want one saying another ogre (version %s) is running", err, testVersion)
 		}
 		assertPortFree(t, port)
 	})
 }
 
 // A machine without IPv6 cannot have anything answering on ::1, so there the
-// second listener is skipped with a warning and godir serves on 127.0.0.1.
+// second listener is skipped with a warning and ogre serves on 127.0.0.1.
 // The failure is injected, because it cannot be arranged on a machine that
 // has IPv6.
 func TestLocalhostServesWithoutIPv6(t *testing.T) {

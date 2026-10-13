@@ -1,8 +1,8 @@
-// Command godir runs a go-links Directory: a small web server that turns
-// "go/name" into the address it stands for.
+// Command ogre runs the Ogre server, a go-links Directory: a small web
+// server that turns "go/name" into the address it stands for.
 //
-//	godir [serve] [flags]   run the Directory (the default command)
-//	godir version           print the version
+//	ogre [serve] [flags]   run the Directory (the default command)
+//	ogre version           print the version
 package main
 
 import (
@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-// version is what "godir version" and the meta endpoint report. A release
+// version is what "ogre version" and the meta endpoint report. A release
 // build sets it with -ldflags "-X main.version=1.2.3".
 var version = "0.1.0-dev"
 
@@ -35,12 +35,12 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		fmt.Fprint(stdout, usage())
 		return 0
 	}
-	fmt.Fprintf(stderr, "godir: %v\n", err)
+	fmt.Fprintf(stderr, "ogre: %v\n", err)
 	return 1
 }
 
 // dispatch picks the command. No command, or a flag in its place, means
-// serve, so that "godir" alone starts the Directory (DEP-1).
+// serve, so that "ogre" alone starts the Directory (DEP-1).
 func dispatch(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) error {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		return serve(ctx, args, getenv, stderr)
@@ -52,11 +52,11 @@ func dispatch(ctx context.Context, args []string, getenv func(string) string, st
 		if len(rest) > 0 {
 			return fmt.Errorf("version takes no arguments, got %q", rest[0])
 		}
-		fmt.Fprintf(stdout, "godir %s\n", version)
+		fmt.Fprintf(stdout, "ogre %s\n", version)
 		return nil
 	case "help":
 		return flag.ErrHelp
 	default:
-		return fmt.Errorf("unknown command %q; the commands are serve (the default) and version. Run \"godir help\" for the flags", command)
+		return fmt.Errorf("unknown command %q; the commands are serve (the default) and version. Run \"ogre help\" for the flags", command)
 	}
 }

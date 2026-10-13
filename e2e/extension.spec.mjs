@@ -66,7 +66,7 @@ test("the rule sends a go link to the same path and query on the Directory", asy
       ["https://go/roadmap", "http://localhost:4655/roadmap"],
       ["http://go/RoadMap", "http://localhost:4655/RoadMap"],
       ["http://go/", "http://localhost:4655/"],
-      ["http://go/gh/godir/pr/12?tab=files&q=a+b", "http://localhost:4655/gh/godir/pr/12?tab=files&q=a+b"],
+      ["http://go/gh/api-server/pr/12?tab=files&q=a+b", "http://localhost:4655/gh/api-server/pr/12?tab=files&q=a+b"],
       ["http://go/a%20b%2Fc", "http://localhost:4655/a%20b%2Fc"],
     ];
     for (const [goLink, directoryUrl] of cases) {

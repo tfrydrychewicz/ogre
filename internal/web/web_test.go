@@ -24,7 +24,7 @@ func TestPlaceholderPage(t *testing.T) {
 		t.Errorf("Content-Type = %q", got)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"<!doctype html>", "godir is running", "1.2.3-test", `href="/-/static/site.css"`} {
+	for _, want := range []string{"<!doctype html>", "Ogre is running", "1.2.3-test", `href="/-/static/site.css"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page does not contain %q", want)
 		}

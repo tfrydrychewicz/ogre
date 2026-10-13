@@ -10,19 +10,19 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/tfrydrychewicz/godir/internal/app"
-	"github.com/tfrydrychewicz/godir/internal/config"
-	"github.com/tfrydrychewicz/godir/internal/httpd"
-	"github.com/tfrydrychewicz/godir/internal/store"
-	"github.com/tfrydrychewicz/godir/internal/web"
+	"github.com/tfrydrychewicz/ogre/internal/app"
+	"github.com/tfrydrychewicz/ogre/internal/config"
+	"github.com/tfrydrychewicz/ogre/internal/httpd"
+	"github.com/tfrydrychewicz/ogre/internal/store"
+	"github.com/tfrydrychewicz/ogre/internal/web"
 )
 
-// usage is the help text of "godir help" and "godir --help".
+// usage is the help text of "ogre help" and "ogre --help".
 func usage() string {
-	return "godir runs a go-links Directory.\n\n" +
+	return "ogre runs a go-links Directory.\n\n" +
 		"Usage:\n" +
-		"  godir [serve] [flags]   run the Directory (the default command)\n" +
-		"  godir version           print the version\n\n" +
+		"  ogre [serve] [flags]   run the Directory (the default command)\n" +
+		"  ogre version           print the version\n\n" +
 		config.Usage()
 }
 
@@ -33,8 +33,8 @@ func usage() string {
 //
 //  1. The configuration is checked before anything is created, so a refused
 //     address leaves no database behind.
-//  2. The address is bound before the database is opened. A godir that
-//     cannot have the port (most often because another godir is running)
+//  2. The address is bound before the database is opened. An Ogre server
+//     that cannot have the port (most often because another one is running)
 //     must not create, write to or migrate a database it will never serve;
 //     with a newer binary that would change the schema under the running
 //     one.
@@ -72,7 +72,7 @@ func serve(ctx context.Context, args []string, getenv func(string) string, stder
 		}
 	}()
 
-	log.Info("godir is starting", "version", version, "url", "http://"+cfg.Addr, "db", cfg.DBPath)
+	log.Info("ogre is starting", "version", version, "url", "http://"+cfg.Addr, "db", cfg.DBPath)
 	// Validate let a non-loopback host through only because the override
 	// flag was given; say what that means every time it happens.
 	if host, _, err := net.SplitHostPort(cfg.Addr); err == nil && !config.IsLoopbackHost(host) {
@@ -117,6 +117,6 @@ func serve(ctx context.Context, args []string, getenv func(string) string, stder
 	if err := srv.Serve(ctx, listeners); err != nil {
 		return err
 	}
-	log.Info("godir has stopped")
+	log.Info("ogre has stopped")
 	return nil
 }

@@ -9,7 +9,7 @@ import (
 
 // ensureLocalUser inserts the built-in user of local mode unless it is there
 // already. It runs on every Open so that a database always has an owner for
-// new links, whichever godir version created it.
+// new links, whichever Ogre version created it.
 func (s *SQLite) ensureLocalUser(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO users (email, display_name, role, status, created_at)

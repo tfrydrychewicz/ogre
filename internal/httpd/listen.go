@@ -35,7 +35,7 @@ const (
 // served by Server.Serve.
 //
 // Opening them is a step of its own so that a caller can find out that the
-// address is taken before it does anything it could regret: godir binds
+// address is taken before it does anything it could regret: ogre binds
 // first and opens its database second, so a second instance never touches,
 // creates or migrates a database it will not serve.
 type Listeners struct {
@@ -73,7 +73,7 @@ func (l *Listeners) Close() error {
 // fails: "localhost" resolves to ::1 first on many systems, so whatever
 // holds that port would answer the go links meant for this Directory.
 //
-// When the port is taken, the error says whether another godir holds it or
+// When the port is taken, the error says whether another ogre holds it or
 // some other program, because the remedies differ.
 //
 // log receives the warning about a missing IPv6 loopback; nil discards it.
@@ -252,22 +252,22 @@ func (u *unusedConns) closeAll() {
 }
 
 // listenError explains a failed listen. For a busy port it asks whoever holds
-// it for the meta endpoint, to tell "godir is already running" (fine, use it)
+// it for the meta endpoint, to tell "ogre is already running" (fine, use it)
 // from "something else has this port" (pick another).
 func listenError(ctx context.Context, addr string, err error) error {
 	if !isAddrInUse(err) {
 		return fmt.Errorf("listen on %s: %w", addr, err)
 	}
-	if version, ok := probeGodir(ctx, addr); ok {
-		return fmt.Errorf("listen on %s: another godir (version %q) is already running there; "+
+	if version, ok := probeOgre(ctx, addr); ok {
+		return fmt.Errorf("listen on %s: another ogre (version %q) is already running there; "+
 			"stop it first, or choose another port with --addr: %w", addr, version, err)
 	}
 	return fmt.Errorf("listen on %s: the port is in use by another program; "+
 		"choose another port with --addr: %w", addr, err)
 }
 
-// probeGodir asks the server at addr whether it is a godir.
-func probeGodir(ctx context.Context, addr string) (version string, ok bool) {
+// probeOgre asks the server at addr whether it is an Ogre server.
+func probeOgre(ctx context.Context, addr string) (version string, ok bool) {
 	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+addr+apiPrefix+"meta", nil)

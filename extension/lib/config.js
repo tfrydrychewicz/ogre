@@ -7,8 +7,9 @@
 /** @typedef {chrome.declarativeNetRequest.UpdateRuleOptions} UpdateRuleOptions */
 
 /**
- * The Directory a fresh install talks to: a godir started with its defaults.
- * The manifest's host permission names the same origin; keep the two in step.
+ * The Directory a fresh install talks to: an Ogre server started with its
+ * defaults. The manifest's host permission names the same origin; keep the
+ * two in step.
  */
 export const DEFAULT_DIRECTORY_URL = "http://localhost:4655";
 

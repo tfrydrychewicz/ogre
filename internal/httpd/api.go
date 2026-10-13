@@ -9,17 +9,17 @@ import (
 	"time"
 	"unicode/utf16"
 
-	"github.com/tfrydrychewicz/godir/internal/app"
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/app"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
 )
 
 const (
 	apiPrefix = internalPrefix + "api/v1/"
 
-	// product identifies a godir to another godir: Listen asks the meta
-	// endpoint who holds a busy port. It is on the rename list of plan
-	// section 3.1.
-	product    = "godir"
+	// product identifies an Ogre server to another one: Listen asks the
+	// meta endpoint who holds a busy port. Plan section 3.1 lists it among
+	// the places the product name lives.
+	product    = "ogre"
 	apiVersion = 1
 
 	// maxBodyBytes bounds a request body. A link with every route at its
@@ -47,8 +47,8 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	writeText(w, r, http.StatusOK, "ok")
 }
 
-// metaJSON is how a client, the extension, or another godir recognises this
-// server and learns which API it speaks.
+// metaJSON is how a client, the extension, or another Ogre server recognises
+// this server and learns which API it speaks.
 type metaJSON struct {
 	Product string `json:"product"`
 	Version string `json:"version"`

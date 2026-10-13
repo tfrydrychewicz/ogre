@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tfrydrychewicz/godir/internal/linkmodel"
-	"github.com/tfrydrychewicz/godir/internal/store"
+	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/store"
 )
 
 // Errors of the use cases that a caller is expected to handle. Test for them
