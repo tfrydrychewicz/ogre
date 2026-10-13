@@ -81,4 +81,4 @@ Before a release, also check by hand what the tests can't reach: with `extension
 
 ## License
 
-No license has been chosen yet, so all rights are reserved for now.
+[MIT](LICENSE).

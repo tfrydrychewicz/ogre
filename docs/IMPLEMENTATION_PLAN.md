@@ -701,7 +701,6 @@ Open points that don't block L0–L4:
 - The server's name (the rest of Q8). The extension is Ogre; the server is still `godir`. The rename list is in section 3.1.
 - The CI workflow. The repository is `github.com/tfrydrychewicz/godir`, so the workflow of section 4 can be wired now.
 - Whether a destination may carry credentials (`https://user@host/`). L1 allows them, as PRD 5.4 implies; forbidding them would close a phishing shape such as `https://example.com@evil.example/`.
-- A license. The repository is public without one, so all rights are reserved until one is added.
 - How far to support Windows for the local server. This plan documents a Task Scheduler command and builds nothing more.
 
 ## Appendix A. Requirement traceability
