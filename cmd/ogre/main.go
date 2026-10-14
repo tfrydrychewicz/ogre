@@ -17,7 +17,7 @@ import (
 
 // version is what "ogre version" and the meta endpoint report. A release
 // build sets it with -ldflags "-X main.version=1.2.3".
-var version = "0.1.0"
+var version = "0.2.0-dev"
 
 func main() {
 	os.Exit(run(context.Background(), os.Args[1:], os.Getenv, os.Stdout, os.Stderr))
