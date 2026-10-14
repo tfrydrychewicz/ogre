@@ -68,7 +68,8 @@ func TestSetupPage(t *testing.T) {
 }
 
 // The shortcut points at the configured address, and the page warns when
-// the extension, which knows only the default address, would miss it.
+// the extension, with its default address, would miss it, naming the
+// address to save in its settings.
 func TestSetupPageAddress(t *testing.T) {
 	tests := []struct {
 		addr     string
@@ -106,8 +107,12 @@ func TestSetupPageAddress(t *testing.T) {
 			if !strings.Contains(text, tt.wantURL+"/%s") {
 				t.Errorf("the shortcut is not %s/%%s:\n%s", tt.wantURL, text)
 			}
-			if got := strings.Contains(text, "Warning: the extension won't reach this Directory"); got != tt.wantWarn {
+			if got := strings.Contains(text, "Warning: the extension won't reach this Directory by itself"); got != tt.wantWarn {
 				t.Errorf("warning shown = %v, want %v", got, tt.wantWarn)
+			}
+			// The warning names the address to save in the extension's settings.
+			if tt.wantWarn && !strings.Contains(text, "enter "+tt.wantURL+" as the Directory URL, save") {
+				t.Errorf("the warning does not say to save %s in the extension's settings:\n%s", tt.wantURL, text)
 			}
 		})
 	}

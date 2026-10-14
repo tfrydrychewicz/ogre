@@ -109,3 +109,57 @@ export async function expectNoHorizontalScroll(page, label) {
 export function launchPlainBrowser() {
   return chromium.launch({ channel: "chromium", headless: true });
 }
+
+/**
+ * Collects, for the extension's own pages (the settings and first-run
+ * pages), the same failures watchPolicy collects for the Directory's: a
+ * content security policy violation (Chrome's default policy for extension
+ * pages forbids inline script and style), an uncaught error, and any console
+ * error or warning.
+ *
+ * A page of the extension that asks a Directory that is down for its meta
+ * endpoint gets a console error from the browser for the refused request;
+ * allow(pattern) declares such an expected line. The pattern is matched
+ * against the message followed by the URL it names in parentheses, such as
+ * "Failed to load resource: net::ERR_CONNECTION_REFUSED (http://localhost:4655/-/api/v1/meta)".
+ *
+ * @param {BrowserContext} context
+ * @param {string} extensionId
+ * @returns {{ problems: string[], allow: (pattern: RegExp) => void, assertClean: () => void }}
+ */
+export function watchExtensionPages(context, extensionId) {
+  const prefix = `chrome-extension://${extensionId}/`;
+  /** @type {string[]} */
+  const problems = [];
+  /** @type {RegExp[]} */
+  const allowed = [];
+  context.on("console", (message) => {
+    if (message.type() !== "error" && message.type() !== "warning") return;
+    const pageURL = message.page()?.url() ?? message.location().url;
+    if (!pageURL.startsWith(prefix)) return;
+    const text = message.text();
+    if (allowed.some((pattern) => pattern.test(`${text} (${message.location().url})`))) return;
+    problems.push(`${message.type()} on ${pageURL}: ${text}`);
+  });
+  context.on("weberror", (error) => {
+    const pageURL = error.page()?.url() ?? "";
+    if (pageURL.startsWith(prefix)) problems.push(`uncaught on ${pageURL}: ${error.error().message}`);
+  });
+  return {
+    problems,
+    allow: (pattern) => allowed.push(pattern),
+    assertClean: () => expect(problems, "errors on the extension's pages").toEqual([]),
+  };
+}
+
+/**
+ * The console line, as watchExtensionPages matches it, of an extension page
+ * asking a Directory where nothing listens whether it runs.
+ *
+ * @param {string} origin
+ * @returns {RegExp}
+ */
+export function refusedMeta(origin) {
+  const escaped = `${origin}/-/api/v1/meta`.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+  return new RegExp(`^Failed to load resource: net::ERR_CONNECTION_REFUSED \\(${escaped}\\)$`);
+}

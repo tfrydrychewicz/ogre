@@ -29,7 +29,11 @@
 {{if .ForeignPrefill}}
 <div class="notice notice-warning" id="foreign-prefill">
   <strong class="notice-title">Warning: filled in by another site</strong>
+  {{if .Edit}}
+  <p>A page of another site filled in the {{if eq (len .ForeignHosts) 1}}route{{else}}routes{{end}} added below, on the form for a new link. Check every pattern and destination before you save: a route more specific than the link's own takes over part of its traffic. Nothing is saved until you do.</p>
+  {{else}}
   <p>A page of another site opened this form with {{if eq (len .ForeignHosts) 1}}a route{{else}}routes{{end}} already filled in. Check every pattern and destination before you save: nothing is saved until you do.</p>
+  {{end}}
   <ul class="foreign-hosts">
     {{range .ForeignHosts}}<li>{{if .}}Opens a page on <bdi class="url">{{.}}</bdi>{{else}}A destination that can't be read yet{{end}}</li>{{end}}
   </ul>

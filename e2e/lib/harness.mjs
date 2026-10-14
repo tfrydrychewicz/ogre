@@ -20,18 +20,64 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { DEFAULT_DIRECTORY_URL, buildRedirectRule, sameRedirectRule } from "../../extension/lib/config.js";
+import { DEFAULT_DIRECTORY_URL, FIRST_RUN_PAGE, SESSION_KEYS, STORAGE_KEYS, buildRedirectRule, sameRedirectRule } from "../../extension/lib/config.js";
+import { SET_DIRECTORY } from "../../extension/lib/settings.js";
 
 /** @typedef {import("@playwright/test").BrowserContext} BrowserContext */
 /** @typedef {import("@playwright/test").Worker} Worker */
+/** @typedef {import("../../extension/lib/settings.js").SetDirectoryReply} SetDirectoryReply */
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const SERVER_BIN = path.join(REPO_ROOT, "bin", process.platform === "win32" ? "ogre.exe" : "ogre");
 export const EXTENSION_DIR = path.join(REPO_ROOT, "extension");
 
-/** The address the extension redirects to. The server under test must listen exactly here. */
-export const DIRECTORY_URL = DEFAULT_DIRECTORY_URL;
-const DIRECTORY_PORT = Number(new URL(DIRECTORY_URL).port);
+/** The port of the extension's default Directory, 4655. */
+export const DEFAULT_PORT = Number(new URL(DEFAULT_DIRECTORY_URL).port);
+
+/**
+ * The port the Directory under test listens on: OGRE_E2E_PORT when it is
+ * set, otherwise the extension's default.
+ *
+ * Why it can be moved: from L4 on the developer's own Directory runs on 4655
+ * (and from L5 it starts at login), and the tests must never write to it or
+ * ask the developer to stop it without a choice. With the default, the
+ * extension is tested exactly as installed, with nothing saved; with another
+ * port, every browser launched with the extension is first pointed at the
+ * test server the way a user points it at a Directory elsewhere
+ * (pointExtensionAt).
+ *
+ * One request can still reach the default address under OGRE_E2E_PORT: the
+ * first-run page, which opens at install, asks it whether it runs (a GET of
+ * the meta endpoint, which reads and writes nothing) before the extension is
+ * pointed elsewhere. launchWithExtension then closes that tab, except in
+ * first-run.spec.mjs, where the page follows the saved address by itself.
+ * Refusing the request with a Playwright route was tried and dropped: any
+ * route makes Playwright intercept every request of the browser, and an
+ * intercepted request is reported without its Sec-Fetch-* headers, which
+ * redirect.spec.mjs reads.
+ *
+ * @param {string | undefined} value
+ * @returns {number}
+ */
+function e2ePort(value) {
+  if (value === undefined || value === "") return DEFAULT_PORT;
+  const port = Number(value);
+  if (!/^[0-9]+$/.test(value) || port < 1024 || port > 65535) {
+    throw new Error(`OGRE_E2E_PORT must be a port number from 1024 to 65535, got ${JSON.stringify(value)}`);
+  }
+  return port;
+}
+
+const DIRECTORY_PORT = e2ePort(process.env.OGRE_E2E_PORT);
+
+/** The address of the Directory under test, where the extension sends go links during the tests. */
+export const DIRECTORY_URL = `http://localhost:${DIRECTORY_PORT}`;
+
+/**
+ * True when the Directory under test is at the extension's default address,
+ * so the extension needs no setting to reach it. False under OGRE_E2E_PORT.
+ */
+export const AT_DEFAULT_ADDRESS = DIRECTORY_URL === DEFAULT_DIRECTORY_URL;
 
 // ---------------------------------------------------------------------------
 // Cleanup on exit
@@ -176,7 +222,7 @@ async function describePortHolder(port) {
 
 /**
  * @typedef {object} RunningServer
- * @property {string} url the Directory URL, http://localhost:4655
+ * @property {string} url the Directory URL: DIRECTORY_URL, http://localhost:4655 unless OGRE_E2E_PORT moves it
  * @property {number | undefined} pid
  * @property {string} dbPath
  * @property {() => string} output everything the server has printed so far (the last 64 KB), for failure messages
@@ -186,8 +232,9 @@ async function describePortHolder(port) {
 /**
  * Starts `ogre serve --db <dbPath>` and resolves once GET /-/healthz answers.
  *
- * The server listens on its default address, which is the one the extension
- * redirects to. The call refuses to start when that port is already taken:
+ * The server listens at DIRECTORY_URL: its default address, which is the
+ * extension's default too, unless OGRE_E2E_PORT names another port. The call
+ * refuses to start when that port is already taken:
  * the readiness probe, and every link the tests create, would otherwise go to
  * whatever is listening there, possibly the developer's own Directory.
  *
@@ -203,7 +250,8 @@ export async function startServer({ dbPath, bin = SERVER_BIN, readyTimeout = 15_
   if (await portInUse(DIRECTORY_PORT)) {
     throw new Error(
       `port ${DIRECTORY_PORT} is already in use by ${await describePortHolder(DIRECTORY_PORT)}. ` +
-        "Stop it and run the tests again: they need that address, and must not write to a real Directory.",
+        "The tests need that address, and must not write to a real Directory. Stop it, or run the tests " +
+        "on another port, for example: OGRE_E2E_PORT=46555 make e2e",
     );
   }
 
@@ -217,7 +265,10 @@ export async function startServer({ dbPath, bin = SERVER_BIN, readyTimeout = 15_
     if (name.startsWith("OGRE_")) delete env[name];
   }
 
-  const child = spawn(bin, ["serve", "--db", dbPath], { cwd: home, env, stdio: ["ignore", "pipe", "pipe"] });
+  // At the default port the server runs with no address flag, as a user
+  // starts it, so the default itself is what is tested.
+  const args = AT_DEFAULT_ADDRESS ? ["serve", "--db", dbPath] : ["serve", "--addr", `localhost:${DIRECTORY_PORT}`, "--db", dbPath];
+  const child = spawn(bin, args, { cwd: home, env, stdio: ["ignore", "pipe", "pipe"] });
   liveChildren.add(child);
 
   // Keep the tail for failure messages, and keep the pipes drained so the
@@ -293,7 +344,7 @@ export async function startServer({ dbPath, bin = SERVER_BIN, readyTimeout = 15_
  * Creates a link through the API, the way `curl` would.
  *
  * @param {LinkDraft} draft
- * @param {string} [directoryUrl] defaults to http://localhost:4655
+ * @param {string} [directoryUrl] defaults to DIRECTORY_URL
  * @returns {Promise<CreatedLink>}
  * @throws {Error} naming the status and the response body unless the answer is 201
  */
@@ -470,29 +521,47 @@ export function dynamicRules(serviceWorker) {
 
 /**
  * Launches headless Chromium with the unpacked extension and resolves once the
- * extension's service worker runs and, by default, its redirect rule is
- * installed. Without that second wait a test could open a go link before the
- * worker has finished installing the rule.
+ * extension's service worker runs and, by default, its redirect rule sends go
+ * links to `directory`. Without that wait a test could open a go link before
+ * the worker has finished installing the rule.
+ *
+ * When `directory` is not the extension's default, the extension is first
+ * pointed there through its own settings (pointExtensionAt), so the browser
+ * is in the state a user leaves it in after saving that address.
+ *
+ * The first-run page, which the worker opens at every launch until it is
+ * finished (L0 spike, check 14), is closed again unless `keepFirstRunTab`:
+ * left open, it would count go/ navigations of the test as the user's and
+ * write that to storage, and under OGRE_E2E_PORT what it shows would
+ * depend on whether something runs at the default address on this machine.
  *
  * @param {object} [options]
  * @param {string} [options.extensionDir] defaults to extension/
  * @param {string} [options.userDataDir] defaults to a fresh temp profile; pass an earlier one to simulate a restart
- * @param {boolean} [options.waitForRule=true] wait for the default redirect rule to be the installed one
+ * @param {string} [options.directory] where go links should go; defaults to DIRECTORY_URL. Pass
+ *   DEFAULT_DIRECTORY_URL for a test about the extension as installed, whatever OGRE_E2E_PORT says
+ * @param {boolean} [options.waitForRule=true] wait for the rule for `directory` to be the installed one.
+ *   With false, and `directory` the default, the call returns as soon as the worker runs
  * @param {number} [options.timeout=15000] milliseconds for the worker, and again for the rule
+ * @param {string[]} [options.args] more Chromium switches, such as "--restore-last-session"
+ * @param {boolean} [options.keepFirstRunTab=false] leave the first-run page open (first-run.spec.mjs)
  * @returns {Promise<ExtensionBrowser>}
  */
 export async function launchWithExtension({
   extensionDir = EXTENSION_DIR,
   userDataDir = tempDir("ogre-e2e-profile-"),
+  directory = DIRECTORY_URL,
   waitForRule = true,
   timeout = 15_000,
+  args = [],
+  keepFirstRunTab = false,
 } = {}) {
   const dir = path.resolve(extensionDir);
   if (!existsSync(path.join(dir, "manifest.json"))) throw new Error(`no manifest.json in ${dir}`);
 
   const context = await launch({
     userDataDir,
-    args: [`--disable-extensions-except=${dir}`, `--load-extension=${dir}`],
+    args: [`--disable-extensions-except=${dir}`, `--load-extension=${dir}`, ...args],
   });
   try {
     /** @param {Worker} worker */
@@ -500,30 +569,207 @@ export async function launchWithExtension({
     const serviceWorker =
       context.serviceWorkers().find(isOurs) ??
       (await context.waitForEvent("serviceworker", { predicate: isOurs, timeout }));
+    const extensionId = new URL(serviceWorker.url()).host;
 
-    if (waitForRule) {
-      const wanted = buildRedirectRule(DEFAULT_DIRECTORY_URL);
-      const deadline = Date.now() + timeout;
-      for (;;) {
-        const rules = await dynamicRules(serviceWorker);
-        if (rules.length === 1 && sameRedirectRule(rules[0], wanted)) break;
-        if (Date.now() > deadline) {
-          throw new Error(`the extension did not install its redirect rule within ${timeout} ms; rules: ${JSON.stringify(rules)}`);
-        }
-        await sleep(50);
-      }
+    // The install event's work comes first, as on a real install: it gives
+    // up access no Directory uses, which a grant made meanwhile would lose.
+    await waitForInstallHandled(serviceWorker, timeout);
+    if (!keepFirstRunTab) await closeFirstRunTab(context, extensionId, serviceWorker);
+    if (directory !== DEFAULT_DIRECTORY_URL) {
+      const reply = await pointExtensionAt(context, extensionId, directory);
+      if (!reply.ok) throw new Error(`the extension refused the Directory ${directory}: ${reply.message}`);
     }
-    return {
-      context,
-      extensionId: new URL(serviceWorker.url()).host,
-      serviceWorker,
-      userDataDir,
-      close: () => context.close(),
-    };
+    if (waitForRule || directory !== DEFAULT_DIRECTORY_URL) {
+      await waitForRedirectRule(serviceWorker, directory, timeout);
+    }
+    return { context, extensionId, serviceWorker, userDataDir, close: () => context.close() };
   } catch (error) {
     await context.close();
     throw error;
   }
+}
+
+/**
+ * Waits until the service worker has handled the install event that Chromium
+ * fires at every launch with --load-extension: the redirect rule checked and
+ * the first-run page opened, or found not needed (SESSION_KEYS in
+ * extension/lib/config.js). Tests wait for this instead of sleeping.
+ *
+ * @param {Worker} serviceWorker
+ * @param {number} [timeout=15000] milliseconds
+ * @returns {Promise<void>}
+ */
+export async function waitForInstallHandled(serviceWorker, timeout = 15_000) {
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    const handled = await serviceWorker.evaluate((key) => chrome.storage.session.get(key).then((items) => items[key]), SESSION_KEYS.installHandled);
+    if (handled !== undefined) return;
+    if (Date.now() > deadline) throw new Error(`the extension did not finish handling its install within ${timeout} ms`);
+    await sleep(50);
+  }
+}
+
+/**
+ * Playwright reports a tab a moment after Chrome creates it: how long to
+ * wait for one the worker has just opened.
+ */
+export const NEW_TAB_GRACE_MS = 2000;
+
+/**
+ * Closes the first-run page the worker opened at launch, if it opened one.
+ * Call it once the install event is handled (waitForInstallHandled).
+ *
+ * @param {BrowserContext} context
+ * @param {string} extensionId
+ * @param {Worker} serviceWorker
+ * @returns {Promise<void>}
+ */
+async function closeFirstRunTab(context, extensionId, serviceWorker) {
+  const url = extensionUrl(extensionId, FIRST_RUN_PAGE);
+  const done = await serviceWorker.evaluate((key) => chrome.storage.local.get(key).then((items) => items[key] === true), STORAGE_KEYS.firstRunDone);
+  const deadline = Date.now() + (done ? 0 : NEW_TAB_GRACE_MS);
+  for (;;) {
+    const open = context.pages().filter((page) => page.url() === url);
+    if (open.length > 0) {
+      for (const page of open) await page.close();
+      return;
+    }
+    if (Date.now() >= deadline) return;
+    await sleep(50);
+  }
+}
+
+/**
+ * Waits until the extension's only dynamic rule sends go links to `directory`.
+ *
+ * @param {Worker} serviceWorker
+ * @param {string} directory an origin, such as "http://localhost:4655"
+ * @param {number} [timeout=15000] milliseconds
+ * @returns {Promise<void>}
+ */
+export async function waitForRedirectRule(serviceWorker, directory, timeout = 15_000) {
+  const wanted = buildRedirectRule(directory);
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    const rules = await dynamicRules(serviceWorker);
+    if (rules.length === 1 && sameRedirectRule(rules[0], wanted)) return;
+    if (Date.now() > deadline) {
+      throw new Error(`the extension did not install its redirect rule for ${directory} within ${timeout} ms; rules: ${JSON.stringify(rules)}`);
+    }
+    await sleep(50);
+  }
+}
+
+/**
+ * The URL of one of the extension's own pages.
+ *
+ * @param {string} extensionId
+ * @param {string} page relative to the extension's root, for example "options/options.html"
+ * @returns {string}
+ */
+export function extensionUrl(extensionId, page) {
+  return `chrome-extension://${extensionId}/${page}`;
+}
+
+/**
+ * Makes Chrome answer "Allow" the next time the extension asks for host
+ * access to `origin`, without showing its prompt.
+ *
+ * The prompt itself cannot be answered in headless Chromium: a
+ * chrome.permissions.request that would show it stays pending forever. What
+ * stands in for the user's click is the call Chrome's own extensions page
+ * makes when the user adds a site under "Site access":
+ * chrome.developerPrivate.addHostPermission, run on chrome://extensions, the
+ * one page allowed to make it. For a host the extension lists as optional,
+ * that records the user's approval but does not activate it; the
+ * extension's own chrome.permissions.request for that origin then resolves
+ * true at once, with no prompt, and only from then on does
+ * chrome.permissions.contains report it (seen in Chromium of Playwright
+ * 1.64). So the extension's request code still runs, as it would after a
+ * real "Allow". Whether the real prompt appears, and what Deny does, is on
+ * the manual list (docs/manual-tests.md).
+ *
+ * @param {BrowserContext} context
+ * @param {string} extensionId
+ * @param {string} origin for example "http://localhost:46551"
+ * @returns {Promise<void>}
+ */
+export async function approveHostAccess(context, extensionId, origin) {
+  const page = await context.newPage();
+  try {
+    await page.goto("chrome://extensions/");
+    await page.evaluate(
+      ([id, pattern]) => {
+        // Not in @types/chrome: the API exists only for Chrome's own pages.
+        const developerPrivate = /** @type {{ addHostPermission(id: string, host: string): Promise<void> }} */ (
+          /** @type {any} */ (globalThis).chrome.developerPrivate
+        );
+        return developerPrivate.addHostPermission(id, pattern);
+      },
+      [extensionId, `${origin}/*`],
+    );
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * Gives the extension host access to one origin: approveHostAccess, then the
+ * request the settings page makes (requestAccess in extension/lib/settings.js
+ * calls exactly this), from one of the extension's pages.
+ *
+ * @param {BrowserContext} context
+ * @param {string} extensionId
+ * @param {string} origin
+ * @returns {Promise<void>}
+ * @throws {Error} when Chrome did not grant it
+ */
+export async function grantHostAccess(context, extensionId, origin) {
+  await approveHostAccess(context, extensionId, origin);
+  const page = await context.newPage();
+  try {
+    await page.goto(extensionUrl(extensionId, "options/options.html"));
+    const granted = await page.evaluate((pattern) => chrome.permissions.request({ origins: [pattern] }), `${origin}/*`);
+    if (!granted) throw new Error(`Chrome did not grant the extension access to ${origin}`);
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * Sends the settings page's own request to the service worker: make `url`
+ * the Directory. It is the message the page's Save button sends, from the
+ * page itself, so the worker's checks of its sender apply.
+ *
+ * @param {BrowserContext} context
+ * @param {string} extensionId
+ * @param {string} url
+ * @returns {Promise<SetDirectoryReply>}
+ */
+export async function setDirectoryThroughWorker(context, extensionId, url) {
+  const page = await context.newPage();
+  try {
+    await page.goto(extensionUrl(extensionId, "options/options.html"));
+    return await page.evaluate(([type, value]) => chrome.runtime.sendMessage({ type, url: value }), [SET_DIRECTORY, url]);
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * Points the extension at a Directory the way the settings page's Save does:
+ * access to its origin is asked for and granted (grantHostAccess, with the
+ * prompt approved in advance), then the worker is asked to save it. The
+ * redirect rule follows. settings.spec.mjs drives the page itself.
+ *
+ * @param {BrowserContext} context
+ * @param {string} extensionId
+ * @param {string} origin
+ * @returns {Promise<SetDirectoryReply>}
+ */
+export async function pointExtensionAt(context, extensionId, origin) {
+  if (origin !== DEFAULT_DIRECTORY_URL) await grantHostAccess(context, extensionId, origin);
+  return setDirectoryThroughWorker(context, extensionId, origin);
 }
 
 /**

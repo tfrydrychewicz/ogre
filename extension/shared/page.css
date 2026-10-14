@@ -1,0 +1,844 @@
+/*
+ * Ogre extension: the base stylesheet of the extension's own pages
+ * (options/, onboarding/).
+ *
+ * The extension cannot load the Directory's stylesheet: its pages must work
+ * when the Directory is down, and Manifest V3 loads no remote code or style.
+ * So this is a copy of the parts of the web UI's base stylesheet
+ * (internal/web/static/css/site.css) these pages use: the color tokens of
+ * both themes, unchanged, so the contrast table in that file holds here too,
+ * and the base elements, buttons, fields, notices, go-link text, badges and
+ * utilities. When a token changes there, copy it here.
+ *
+ * The page shell (header, main, footer) and the classes below the line
+ * "extension pages" are this file's own.
+ *
+ * As in the web UI: colors only through tokens, focus always visible, nothing
+ * wider than 375px, and no inline style (the extension pages' content
+ * security policy forbids it as well).
+ */
+
+/* ---------------------------------------------------------------- tokens */
+
+:root {
+  color-scheme: light dark;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --color-bg: #f6f7f9;            /* page background */
+  --color-surface: #ffffff;       /* cards, header, inputs */
+  --color-surface-2: #eef0f3;     /* code, table heads, quiet fills */
+  --color-text: #1a1d23;
+  --color-muted: #565d6b;         /* secondary text */
+  --color-border: #d9dde3;        /* decorative lines */
+  --color-control: #7c8494;       /* borders of inputs and other controls */
+  --color-accent: #2f55d4;        /* the one accent: primary buttons, marks */
+  --color-accent-hover: #2445b4;
+  --color-on-accent: #ffffff;     /* text on --color-accent */
+  --color-accent-soft: #e9eefc;   /* highlights: variables, selected rows */
+  --color-link: #2447b8;          /* links and accent-colored text */
+  --color-focus: #2f55d4;
+  --color-danger: #b42318;
+  --color-danger-hover: #912018;
+  --color-on-danger: #ffffff;
+  --color-danger-soft: #fdecea;
+  --color-success: #17733a;
+  --color-success-soft: #e6f4ea;
+  --color-warning: #8a4b00;
+  --color-warning-soft: #fdf3e1;
+
+  --radius: 6px;
+  --radius-small: 4px;
+  --shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.08);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  --page-width: 64rem;
+  --gutter: 1rem;                  /* 16px at phone width */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #121418;
+    --color-surface: #1a1d23;
+    --color-surface-2: #242831;
+    --color-text: #e7e9ee;
+    --color-muted: #a3aab8;
+    --color-border: #323743;
+    --color-control: #788194;
+    --color-accent: #7d9bff;
+    --color-accent-hover: #9cb3ff;
+    --color-on-accent: #0b1020;
+    --color-accent-soft: #1f2a4d;
+    --color-link: #9db4ff;
+    --color-focus: #7d9bff;
+    --color-danger: #ff8a80;
+    --color-danger-hover: #ffa59d;
+    --color-on-danger: #1d0a08;
+    --color-danger-soft: #3a1d1c;
+    --color-success: #6fd394;
+    --color-success-soft: #16301f;
+    --color-warning: #f2b866;
+    --color-warning-soft: #33270f;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+}
+
+@media (min-width: 40rem) {
+  :root {
+    --gutter: 1.5rem;
+  }
+}
+
+/* ------------------------------------------------------------------ base */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0 0 var(--space-3);
+  line-height: 1.25;
+  font-weight: 650;
+}
+
+h1 {
+  font-size: 1.625rem;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: 1.25rem;
+}
+
+h3 {
+  font-size: 1.0625rem;
+}
+
+p,
+ul,
+ol,
+dl,
+pre,
+table,
+fieldset {
+  margin: 0 0 var(--space-4);
+}
+
+ul,
+ol {
+  padding-left: 1.25rem;
+}
+
+a {
+  color: var(--color-link);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+  font-size: 0.9375em;
+}
+
+code {
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-small);
+  background: var(--color-surface-2);
+  overflow-wrap: anywhere;
+}
+
+pre {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--color-surface-2);
+  overflow-x: auto;
+}
+
+pre code {
+  padding: 0;
+  background: none;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 0.35em;
+  border: 1px solid var(--color-control);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-small);
+  background: var(--color-surface);
+  font-size: 0.8125em;
+  line-height: 1.5;
+  text-align: center;
+}
+
+hr {
+  height: 1px;
+  margin: var(--space-5) 0;
+  border: 0;
+  background: var(--color-border);
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Focus is always visible, for keyboard users; a mouse click on a button
+   does not draw it (:focus-visible). */
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* main receives focus from the skip link only; the ring there would frame
+   the whole page. */
+main:focus {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ------------------------------------------------------------ page shell */
+
+.skip-link {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 100;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: 600;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+.container {
+  width: 100%;
+  max-width: calc(46rem + 2 * var(--gutter));
+  margin: 0 auto;
+  padding-left: var(--gutter);
+  padding-right: var(--gutter);
+}
+
+.site-header {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.site-header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-weight: 700;
+  font-size: 1.125rem;
+}
+
+.brand-mark {
+  padding: 0.05em 0.4em;
+  border-radius: var(--radius-small);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.site-header-note {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+main {
+  flex: 1 0 auto;
+  padding-top: var(--space-5);
+  padding-bottom: var(--space-7);
+}
+
+.page-header {
+  margin-bottom: var(--space-5);
+}
+
+.page-header h1 {
+  margin-bottom: var(--space-1);
+}
+
+.page-header p {
+  margin: 0;
+}
+
+.stack > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.stack > * + * {
+  margin-top: var(--space-5);
+}
+
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.card {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+}
+
+.card > :last-child {
+  margin-bottom: 0;
+}
+
+@media (min-width: 40rem) {
+  .card {
+    padding: var(--space-5);
+  }
+}
+
+/* --------------------------------------------------------------- buttons */
+
+/* .button styles <button> and <a> alike. The default is the quiet,
+   bordered one; one .button-primary per view at most. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 2.5rem;            /* 40px: above the 24px target size of WCAG 2.5.8 */
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-control);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 550;
+  line-height: 1.25;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  /* A label that names a link ("Delete go/<a long name>") wraps rather than
+     push the page sideways on a phone (NFR-20). */
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.button:hover {
+  background: var(--color-surface-2);
+}
+
+.button-primary {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.button-primary:hover {
+  border-color: var(--color-accent-hover);
+  background: var(--color-accent-hover);
+}
+
+.button-danger {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: var(--color-on-danger);
+}
+
+.button-danger:hover {
+  border-color: var(--color-danger-hover);
+  background: var(--color-danger-hover);
+}
+
+/* No border or fill until hovered: for secondary actions in a row. */
+.button-quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-link);
+}
+
+.button-quiet:hover {
+  background: var(--color-surface-2);
+}
+
+.button-small {
+  min-height: 2rem;
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.875rem;
+}
+
+/* A button holding only an icon; it still needs a text label, visually
+   hidden or aria-label. */
+.button-icon {
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+}
+
+.button-icon svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.button:disabled,
+.button[aria-disabled="true"] {
+  border-color: var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-muted);
+  cursor: not-allowed;
+}
+
+/* ----------------------------------------------------------------- forms */
+
+/* One labelled control: label, control, help, error, in that order. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  min-width: 0;
+}
+
+.field > label,
+.label {
+  font-weight: 600;
+}
+
+.field-help {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.field-error {
+  color: var(--color-danger);
+  font-size: 0.875rem;
+  font-weight: 550;
+}
+
+.field-warning {
+  color: var(--color-warning);
+  font-size: 0.875rem;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-control);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 1rem;               /* below 16px, iOS Safari zooms the page */
+  line-height: 1.5;
+}
+
+.textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--color-muted);
+  opacity: 1;
+}
+
+.input:focus-visible,
+.select:focus-visible,
+.textarea:focus-visible {
+  outline-offset: 0;
+  border-color: var(--color-focus);
+}
+
+/* Inputs that hold go links, patterns, URLs or expressions. */
+.input-mono {
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+}
+
+/* An invalid control: the border and a message say it, not color alone. */
+.input[aria-invalid="true"],
+.select[aria-invalid="true"],
+.textarea[aria-invalid="true"] {
+  border-color: var(--color-danger);
+  border-width: 2px;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+/* A checkbox or radio with its label beside it. */
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+fieldset {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  font-weight: 600;
+}
+
+/* A field's control with a button or text joined to its right. */
+.input-group {
+  display: flex;
+  min-width: 0;
+}
+
+.input-group > .input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.input-group > .button {
+  flex: none;
+  margin-left: -1px;
+  white-space: nowrap;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+/* --------------------------------------------------------------- notices */
+
+/* A message box. Its kind is also in its words (or an icon with a label):
+   color alone never carries the meaning. */
+.notice {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.notice > :last-child {
+  margin-bottom: 0;
+}
+
+.notice-info {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.notice-error {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.notice-warning {
+  border-color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.notice-success {
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.notice-title {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-weight: 650;
+}
+
+/* ------------------------------------------------------- go links, codes */
+
+/* A go link as text: "go/<path>". Monospace, wraps anywhere. */
+.golink {
+  font-family: var(--font-mono);
+  font-size: 0.9375em;
+  overflow-wrap: anywhere;
+}
+
+/* A destination URL or other long address shown as text. */
+.url {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+
+/* A route pattern; its variables are .pattern-var spans inside it. */
+.pattern {
+  font-family: var(--font-mono);
+  font-size: 0.9375em;
+  overflow-wrap: anywhere;
+}
+
+.pattern-var {
+  padding: 0 0.15em;
+  border-radius: var(--radius-small);
+  background: var(--color-accent-soft);
+  color: var(--color-link);
+  font-weight: 600;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* --------------------------------------------------------------- badges */
+
+.badge {
+  display: inline-block;
+  padding: 0 0.5em;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.badge-accent {
+  border-color: transparent;
+  background: var(--color-accent-soft);
+  color: var(--color-link);
+}
+
+.badge-danger {
+  border-color: transparent;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+/* ------------------------------------------------------------- utilities */
+
+.muted {
+  color: var(--color-muted);
+}
+
+.small {
+  font-size: 0.875rem;
+}
+
+/* Wrap a long word or URL anywhere rather than widen the page. */
+.break {
+  overflow-wrap: anywhere;
+}
+
+/* One line, cut with an ellipsis. Put the full text in a title or nearby. */
+.truncate {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Hidden on screen, read by screen readers. */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* -------------------------------------------------------- extension pages */
+
+/* A message area that is empty until something is said in it. */
+.status:empty {
+  display: none;
+}
+
+.status {
+  margin: var(--space-4) 0;
+}
+
+.status > .notice:last-child,
+.card > .status:last-child {
+  margin-bottom: 0;
+}
+
+/* The first-run page: three steps, each a card whose state is in its badge
+   text as well as its edge color. */
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.steps {
+  margin-bottom: var(--space-5);
+}
+
+.steps > li + li {
+  margin-top: var(--space-4);
+}
+
+/* Inside a step, space comes before each part (.status and .step-body have
+   margin-top), never after the last one shown, which may be followed by
+   hidden parts. */
+.step > p,
+.step-body > :last-child {
+  margin-bottom: 0;
+}
+
+.step-body {
+  margin-top: var(--space-4);
+}
+
+.step {
+  border-left-width: 4px;
+}
+
+.step[data-state="done"] {
+  border-left-color: var(--color-success);
+}
+
+.step[data-state="active"] {
+  border-left-color: var(--color-accent);
+}
+
+.step[data-state="waiting"] > p {
+  color: var(--color-muted);
+}
+
+.step-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.step-head h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.badge-success {
+  border-color: transparent;
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.step > .status {
+  margin-bottom: 0;
+}
+
+.instructions > li + li {
+  margin-top: var(--space-2);
+}
+
+.command {
+  display: block;
+  margin: var(--space-1) 0 var(--space-2);
+}
+
+/* Forced colors (Windows High Contrast): keep the shapes the tokens drew. */
+@media (forced-colors: active) {
+  .button,
+  .badge,
+  .notice,
+  .pattern-var,
+  .brand-mark {
+    border: 1px solid CanvasText;
+  }
+
+  .button-primary,
+  .button-danger {
+    border-width: 2px;
+  }
+}

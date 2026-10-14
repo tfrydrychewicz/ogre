@@ -302,7 +302,7 @@ func newRegexType(source string, checkSize bool) (VarType, *errRegex) {
 			return nil, &errRegex{CodePatternRegexInvalid, regexMessage(source, err)}
 		}
 	}
-	re, err := regexp.Compile(wrapped)
+	re, err := compileShared(wrapped)
 	if err != nil {
 		return nil, &errRegex{CodePatternRegexInvalid, regexMessage(source, err)}
 	}

@@ -6,7 +6,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:extension": "node --test extension/",
-    "e2e": "playwright test --config e2e/playwright.config.mjs",
+    "e2e": "playwright test --config e2e/playwright.config.mjs --project=chromium",
+    "e2e:browsers": "playwright test --config e2e/playwright.config.mjs --project=firefox --project=webkit",
     "test:web": "node --test e2e/unit/"
   },
   "devDependencies": {

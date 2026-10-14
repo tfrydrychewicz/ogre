@@ -253,8 +253,19 @@ type doc struct {
 }
 
 // newDoc builds the doc of c, stored under name (the normalized key).
+//
+// Every link has a doc for the life of the process, so the builder is sized
+// up front: grown by appending, it would leave up to half of each text as
+// unused capacity, megabytes at 100,000 links (docs/perf.md, NFR-5). The
+// size is exact unless lowercasing changes a length, which only costs one
+// more growth.
 func newDoc(name string, c *linkmodel.CompiledLink) *doc {
+	size := len(name) + 1 + len(c.Link.Description) + 1
+	for _, r := range c.Link.Routes {
+		size += len(r.Destination) + 1
+	}
 	var b strings.Builder
+	b.Grow(size)
 	b.WriteString(name)
 	b.WriteByte(docSep)
 	descAt := b.Len()

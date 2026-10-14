@@ -56,6 +56,27 @@ type formPage struct {
 	IgnoredPrefill bool
 }
 
+// foreignHandover is the value of the edit form's "prefill" parameter with
+// which the create form's "Add this route to go/x" says that the routes it
+// hands over were filled in by another site (form.js, addToExisting). The
+// request itself then comes from the Directory's own page, so Fetch Metadata
+// alone would take the routes for the user's. Another site cannot use the
+// parameter to the opposite end: a request from it to the edit form loses
+// its routes whatever the parameter says, and leaving the parameter out
+// only removes a warning such a request never gets.
+const foreignHandover = "foreign"
+
+// foreignHosts lists the hosts the routes' destinations lead to, for the
+// "filled in by another site" warning: "" for a destination that can't be
+// read.
+func foreignHosts(routes []formRouteJSON) []string {
+	hosts := make([]string, 0, len(routes))
+	for _, rt := range routes {
+		hosts = append(hosts, destinationHost(rt.Destination))
+	}
+	return hosts
+}
+
 // formTypeOption is one choice of the variables table's type selector. Value is
 // the type's name in the link model; Label is what the selector says.
 type formTypeOption struct {
@@ -135,6 +156,14 @@ func formPrefilledRoutes(query url.Values) []formRouteJSON {
 // 5.5), so a page that opened the edit form of go/reports with
 // "reports/10/{day:int}" and its own destination, and got one click on Save,
 // would quietly send part of that link's traffic to its own host.
+//
+// The extension does not make a typed go link look foreign: a go link
+// opened from the address bar and redirected by its rule arrives with
+// "none", and so does a tab the extension opens with chrome.tabs.create. A
+// link clicked on one of the extension's own pages arrives as "cross-site",
+// like any other site's (e2e/fetch-metadata.spec.mjs pins all three). So no
+// prefill a user starts is lost, and the rule needs no exception for the
+// extension.
 func openedFromAnotherSite(r *http.Request) bool {
 	site, present, single := oneHeader(r, "Sec-Fetch-Site")
 	return present && (!single || !isOwnSite(site))
@@ -153,10 +182,7 @@ func (s *Server) newPage(w http.ResponseWriter, r *http.Request) {
 	base.Current = "new"
 	page := formPage{Base: base}
 	if len(draft.Routes) > 0 && openedFromAnotherSite(r) {
-		page.ForeignPrefill = true
-		for _, rt := range draft.Routes {
-			page.ForeignHosts = append(page.ForeignHosts, destinationHost(rt.Destination))
-		}
+		page.ForeignPrefill, page.ForeignHosts = true, foreignHosts(draft.Routes)
 	}
 	if len(draft.Routes) == 0 {
 		draft.Routes = []formRouteJSON{{}}
@@ -218,11 +244,18 @@ func (s *Server) editPage(w http.ResponseWriter, r *http.Request) {
 	// Routes to add come from the create form of this Directory (DIR-4).
 	// Another site has no business adding routes to a link: what it asked
 	// for is left out, and the page says so (see openedFromAnotherSite).
+	// Routes another site put into the create form, which the user then
+	// handed over with "Add this route", arrive from the Directory's own
+	// page; they are kept, under the create form's warning, which the
+	// user's two clicks do not make any less needed.
 	added := formPrefilledRoutes(r.URL.Query())
 	if len(added) > 0 && openedFromAnotherSite(r) {
 		added, page.IgnoredPrefill = nil, true
 	}
 	added = added[:min(len(added), linkmodel.MaxRoutes-min(len(draft.Routes), linkmodel.MaxRoutes))]
+	if len(added) > 0 && r.URL.Query().Get("prefill") == foreignHandover {
+		page.ForeignPrefill, page.ForeignHosts = true, foreignHosts(added)
+	}
 	draft.Routes = append(draft.Routes, added...)
 	draft.Appended = len(added)
 

@@ -2,7 +2,8 @@
 // extension, and a real browser. A link is created through the API, and
 // opening its go link must land on the destination.
 //
-// Needs port 4655 free, because that is where the extension redirects to.
+// Needs port 4655 free, because that is where the extension redirects to (or
+// the port OGRE_E2E_PORT names, where the harness points the extension).
 
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";

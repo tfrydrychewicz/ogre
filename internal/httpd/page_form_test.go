@@ -422,4 +422,46 @@ func TestFormPrefillFromAnotherSite(t *testing.T) {
 	if strings.Contains(rec.Body.String(), `id="foreign-prefill"`) {
 		t.Error("an empty form warns of a prefill")
 	}
+
+	// "Add this route" on a create form that another site filled in opens
+	// the edit form from the Directory's own page, marked: the routes are
+	// appended, under the same warning, for the same reason.
+	for _, tt := range []struct {
+		name, site, query string
+		appended          int
+		warned, ignored   bool
+	}{
+		{"handed over, marked", "same-origin", hijack + "&prefill=foreign", 2, true, false},
+		{"handed over, unmarked", "same-origin", hijack, 2, false, false},
+		{"marked, without Fetch Metadata", "", hijack + "&prefill=foreign", 2, true, false},
+		{"marked, from another site", "cross-site", hijack + "&prefill=foreign", 0, false, true},
+		{"marked, nothing to add", "same-origin", "prefill=foreign", 0, false, false},
+		{"another value", "same-origin", hijack + "&prefill=yes", 2, false, false},
+	} {
+		t.Run("edit "+tt.name, func(t *testing.T) {
+			rec := request{target: "/-/links/roadmap/edit?" + tt.query, headers: navigation(tt.site)}.send(h)
+			body := rec.Body.String()
+			assertFormPageSafe(t, body)
+			if got := formInitial(t, body); got.Appended != tt.appended {
+				t.Errorf("appended %d routes, want %d", got.Appended, tt.appended)
+			}
+			if warned := strings.Contains(body, `id="foreign-prefill"`); warned != tt.warned {
+				t.Errorf("warning shown = %v, want %v", warned, tt.warned)
+			}
+			if ignored := strings.Contains(body, `id="ignored-prefill"`); ignored != tt.ignored {
+				t.Errorf("notice of the routes left out shown = %v, want %v", ignored, tt.ignored)
+			}
+			if tt.warned {
+				for _, want := range []string{
+					"filled in the routes added below",
+					`Opens a page on <bdi class="url">evil.test</bdi>`,
+					"A destination that can't be read yet",
+				} {
+					if !strings.Contains(body, want) {
+						t.Errorf("the warning lacks %q", want)
+					}
+				}
+			}
+		})
+	}
 }

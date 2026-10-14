@@ -6,7 +6,8 @@
 // on another having run, and fails on any content security policy violation
 // or script error in any page it opened (lib/ui.mjs).
 //
-// Needs port 4655 free, because that is where the extension redirects to.
+// Needs port 4655 free, because that is where the extension redirects to (or
+// the port OGRE_E2E_PORT names, where the harness points the extension).
 
 import { expect, test } from "@playwright/test";
 import path from "node:path";

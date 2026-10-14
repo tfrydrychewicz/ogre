@@ -1,0 +1,77 @@
+<!doctype html>
+<!--
+  The extension's settings page (plan L4.2, EXT-2): where go links are sent.
+  No inline script or style: the extension pages' content security policy
+  forbids both. options.js fills in the current address and does the rest.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Settings · Ogre</title>
+<link rel="icon" href="../icons/icon-32.png" type="image/png">
+<link rel="stylesheet" href="../shared/page.css">
+<script type="module" src="options.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="container site-header-inner">
+    <span class="brand"><span class="brand-mark" aria-hidden="true">go/</span><span>Ogre</span></span>
+    <span class="site-header-note">Extension settings</span>
+  </div>
+</header>
+<main id="main" class="container" tabindex="-1">
+  <div class="page-header">
+    <h1>Settings</h1>
+    <p class="muted">The extension sends every go link you open to your Ogre server, the Directory.</p>
+  </div>
+
+  <div class="stack">
+    <section class="card" aria-labelledby="directory-title">
+      <h2 id="directory-title">Directory</h2>
+      <p>Go links now go to <span class="url" id="current">…</span>.</p>
+
+      <form id="form" novalidate>
+        <div class="field">
+          <label for="url">Directory URL</label>
+          <span class="field-help" id="url-help">The address of your Ogre server: <code>http://</code> or <code>https://</code>, its name, and a port if it has one; nothing after that. A server started on this computer with its default settings is at <code>http://localhost:4655</code>.</span>
+          <input class="input input-mono" id="url" name="url" type="text" inputmode="url" autocomplete="url" autocapitalize="none" spellcheck="false" aria-describedby="url-help url-error">
+          <span class="field-error" id="url-error" hidden></span>
+        </div>
+        <div class="form-actions">
+          <button class="button button-primary" id="save" type="submit">Save</button>
+          <button class="button" id="test" type="button">Test connection</button>
+          <button class="button button-quiet" id="default" type="button">Use the default address</button>
+        </div>
+      </form>
+
+      <div class="status" id="result" role="status" aria-live="polite"></div>
+
+      <div class="notice notice-warning status" id="unreachable" role="alert" hidden>
+        <strong class="notice-title">Warning: no Ogre server answers there</strong>
+        <p id="unreachable-reason"></p>
+        <p>You can save the address anyway, for a server you will start later. Until it runs, go links end on Chrome's error page.</p>
+        <div class="cluster">
+          <button class="button" id="save-anyway" type="button">Save anyway</button>
+          <button class="button button-quiet" id="cancel-anyway" type="button">Cancel</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="access-title">
+      <h2 id="access-title">What the extension may reach</h2>
+      <p>The extension acts on go links and talks to one server, the Directory above. It reads no other site and sends nothing anywhere else.</p>
+      <p>A server at another address than the default needs your permission: when you test or save such an address, Chrome asks whether the extension may contact that one server. When you save, access to any other server you allowed before is given up. Access you allowed only to test an address you did not save is given up the next time Chrome starts.</p>
+    </section>
+
+    <section class="card" aria-labelledby="first-run-title">
+      <h2 id="first-run-title">First-run check</h2>
+      <p>The first-run page checks that your server answers and teaches Chrome to open <span class="golink">go/name</span> as an address instead of searching for it.</p>
+      <p><a href="../onboarding/onboarding.html">Open the first-run page</a></p>
+    </section>
+  </div>
+</main>
+</body>
+</html>

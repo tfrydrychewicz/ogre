@@ -24,8 +24,8 @@
 
   {{if not .ExtensionReaches}}
   <div class="notice notice-warning" role="note">
-    <strong class="notice-title">Warning: the extension won't reach this Directory</strong>
-    <p>The extension sends go links to <span class="url">{{.ExtensionURL}}</span>, and this Directory runs at <span class="url">{{.DirectoryURL}}</span>. Until the extension has a settings page, start the Directory at the default address, or use the search shortcut below.</p>
+    <strong class="notice-title">Warning: the extension won't reach this Directory by itself</strong>
+    <p>Unless told otherwise, the extension sends go links to <span class="url">{{.ExtensionURL}}</span>, and this Directory runs at <span class="url">{{.DirectoryURL}}</span>. Once the extension is loaded, open its settings (on <code>chrome://extensions</code>, <strong>Details</strong> under Ogre, then <strong>Extension options</strong>), enter <span class="url">{{.DirectoryURL}}</span> as the Directory URL, save, and allow access when Chrome asks.</p>
   </div>
   {{end}}
 
@@ -50,7 +50,7 @@
       {{else}}
       <li>Choose the folder named <code>extension</code> at the top of your copy of the Ogre repository.</li>
       {{end}}
-      <li>Ogre now appears among your extensions. Leave it switched on.</li>
+      <li>Ogre now appears among your extensions. Leave it switched on. It opens its first-run page, which checks that this Directory answers and walks you through the next step.</li>
     </ol>
   </section>
 

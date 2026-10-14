@@ -4,7 +4,8 @@
 // every other test green while the product broke the rule it guards, so each
 // one is shown here to fail on a page that breaks it on purpose.
 //
-// Needs port 4655 free: the server under test listens there.
+// Needs port 4655 free (or the port OGRE_E2E_PORT names): the server under
+// test listens there.
 
 import { expect, test } from "@playwright/test";
 import path from "node:path";

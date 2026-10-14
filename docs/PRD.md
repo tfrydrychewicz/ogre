@@ -289,7 +289,7 @@ Priorities map to the milestones in section 11:
 | DIR-2 | Validate while the user types: pattern syntax, name availability, destination rules (5.4), and route conflicts (5.5). Each problem is explained next to the field it concerns; a conflict links to the existing link. Errors block saving; warnings don't. | P0 | Added |
 | DIR-3 | Edit a link: any route's pattern or destination, variable types, and the description. Renaming a link renames the first segment of all its routes. A saved change affects resolution within 5 seconds. | P0 | Idea |
 | DIR-4 | Add, remove, and reorder a link's routes. Entering a pattern whose name belongs to an existing link adds a route to that link if the user may edit it; if not, the form says who owns it and links to it. | P0 | Added |
-| DIR-5 | Delete a link, after a confirmation that shows how recently it was used. | P0 | Added |
+| DIR-5 | Delete a link, after a confirmation that shows how recently it was used. Showing the last use needs INS-1 and arrives with it; until then the confirmation names the link, and M1 is met without the last use. | P0 | Added |
 | DIR-6 | Link page: name, description, owner, routes with their destinations, variables with their types, a launcher (VAR-5), and buttons that copy the short form (`go/…`) and the full Directory URL. | P0 | Added |
 | DIR-7 | The creation form can open prefilled with a pattern (from a miss page) or a destination (from the extension popup). | P0 | Added |
 | DIR-8 | When a new route's destination is already the destination of another link, show that link before saving. | P2 | Added |

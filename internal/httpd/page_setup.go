@@ -11,10 +11,11 @@ import (
 	"github.com/tfrydrychewicz/ogre/internal/web"
 )
 
-// extensionDirectoryURL is where the extension sends go links until it has a
-// settings page (L4): DEFAULT_DIRECTORY_URL in extension/lib/config.js, the
-// address of config.DefaultAddr. The setup page warns when this Directory
-// runs anywhere else, since the extension would then not reach it.
+// extensionDirectoryURL is where the extension sends go links until the user
+// saves another address on its settings page: DEFAULT_DIRECTORY_URL in
+// extension/lib/config.js, the address of config.DefaultAddr. The setup page
+// warns when this Directory runs anywhere else, and says which address to
+// save there, since the Directory cannot know what the extension has saved.
 const extensionDirectoryURL = "http://localhost:" + extensionPort
 
 // extensionPort is the port of extensionDirectoryURL.

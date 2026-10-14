@@ -932,6 +932,12 @@ function addToExisting(name) {
     query.append("pattern", row.pattern.input.value);
     query.append("destination", row.destination.value);
   }
+  // This form was opened by another site with routes filled in, and warned
+  // of it. The edit form is opened from this page, so to the server it looks
+  // like the user's own request; the marker carries the warning over, where
+  // the routes would otherwise be added to a working link unflagged
+  // (httpd.foreignHandover).
+  if (document.getElementById("foreign-prefill")) query.append("prefill", "foreign");
   const routes = rows.map((row) => ({
     pattern: row.pattern.input.value,
     destination: row.destination.value,

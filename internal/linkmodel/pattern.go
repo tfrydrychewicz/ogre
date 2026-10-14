@@ -347,29 +347,66 @@ func scan(pattern string, strict bool) scanned {
 
 // newPattern builds a Pattern from valid segments, deriving its canonical
 // text and shape once so that neither is rebuilt for every comparison.
+//
+// Every link's routes are parsed again at startup and held for the life of
+// the process (package index), so the two texts are built without slack: a
+// pattern made only of literals, as most are, is its own shape and shares
+// one string with it, and the builders are sized before they are filled
+// (docs/perf.md, NFR-5).
 func newPattern(segments []Segment) Pattern {
 	p := Pattern{segments: segments}
-	var text, shape strings.Builder
+	size := max(0, len(segments)-1) // the slashes
+	for _, seg := range segments {
+		size += len(seg.Literal)
+		if seg.Type != nil {
+			size += len(seg.Variable) + len(seg.Type.Format()) + 3 // "{", ":", "}"
+		}
+	}
+	var text strings.Builder
+	text.Grow(size)
 	for i, seg := range segments {
 		if i > 0 {
 			text.WriteByte('/')
-			shape.WriteByte('/')
 		}
 		if seg.Type == nil {
 			text.WriteString(seg.Literal)
-			shape.WriteString(seg.Literal)
 			continue
 		}
 		p.variables = append(p.variables, seg.Variable)
-		format := seg.Type.Format()
-		if format != "" {
-			format = ":" + format
-		}
-		text.WriteString("{" + seg.Variable + format + "}")
-		shape.WriteString("{" + format + "}")
+		text.WriteByte('{')
+		text.WriteString(seg.Variable)
+		writeFormat(&text, seg.Type)
+		text.WriteByte('}')
 	}
-	p.text, p.shape = text.String(), shape.String()
+	p.text, p.shape = text.String(), text.String()
+	if len(p.variables) == 0 {
+		return p
+	}
+	var shape strings.Builder
+	shape.Grow(size)
+	for i, seg := range segments {
+		if i > 0 {
+			shape.WriteByte('/')
+		}
+		if seg.Type == nil {
+			shape.WriteString(seg.Literal)
+			continue
+		}
+		shape.WriteByte('{')
+		writeFormat(&shape, seg.Type)
+		shape.WriteByte('}')
+	}
+	p.shape = shape.String()
 	return p
+}
+
+// writeFormat writes ":" and the type's format, or nothing for the string
+// type, which a pattern writes without one.
+func writeFormat(b *strings.Builder, t VarType) {
+	if format := t.Format(); format != "" {
+		b.WriteByte(':')
+		b.WriteString(format)
+	}
 }
 
 // What a segment's text turned out to be.

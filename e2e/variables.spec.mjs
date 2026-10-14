@@ -7,7 +7,8 @@
 // redirect the Directory builds arrives at the destination byte for byte.
 // The rules themselves are tested in Go, at three levels, from spec.json.
 //
-// Needs port 4655 free, because that is where the extension redirects to.
+// Needs port 4655 free, because that is where the extension redirects to (or
+// the port OGRE_E2E_PORT names, where the harness points the extension).
 
 import { expect, test } from "@playwright/test";
 import path from "node:path";

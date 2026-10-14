@@ -1,0 +1,99 @@
+<!doctype html>
+<!--
+  The first-run page (plan L4.3, EXT-3), opened once when the extension is
+  installed. Three steps: the server answers; go/ typed once; a go link
+  without the trailing slash. The page confirms steps 1 and 2 by itself.
+  No inline script or style: the extension pages' content security policy
+  forbids both.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Welcome · Ogre</title>
+<link rel="icon" href="../icons/icon-32.png" type="image/png">
+<link rel="stylesheet" href="../shared/page.css">
+<script type="module" src="onboarding.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="container site-header-inner">
+    <span class="brand"><span class="brand-mark" aria-hidden="true">go/</span><span>Ogre</span></span>
+    <a class="site-header-note" href="../options/options.html">Settings</a>
+  </div>
+</header>
+<main id="main" class="container" tabindex="-1">
+  <div class="page-header">
+    <h1>Set up go links</h1>
+    <p class="muted">Three short steps make <span class="golink">go/name</span> work in this browser. This page notices the first two by itself.</p>
+  </div>
+
+  <ol class="steps">
+    <li class="card step" id="step-server" data-state="active" aria-labelledby="step-server-title">
+      <div class="step-head">
+        <h2 id="step-server-title">1. Your Ogre server</h2>
+        <span class="badge" id="step-server-badge">Checking</span>
+      </div>
+      <p>The extension sends go links to <span class="url" id="directory">…</span>.</p>
+      <div class="status" id="server-status" role="status" aria-live="polite"></div>
+      <div class="step-body" id="server-help" hidden>
+        <p>Start it in a terminal, then come back to this page:</p>
+        <ul class="instructions">
+          <li>In your copy of the Ogre repository: <code class="command">go run ./cmd/ogre</code> (or <code>make run</code>)</li>
+          <li>Or, with the program already built (<code>make build</code> puts it in <code>bin/</code>): <code class="command">bin/ogre</code></li>
+        </ul>
+        <p>Leave the terminal open: the server runs until you stop it with <kbd>Ctrl</kbd>+<kbd>C</kbd>. This page checks again when you come back to it.</p>
+      </div>
+      <div class="step-body" id="server-help-other" hidden>
+        <p>Something answers at this address, but not as an Ogre server this extension can use. When another program holds the port, Ogre cannot start there either. Start Ogre on a free port instead, for example:</p>
+        <ul class="instructions">
+          <li><code class="command">go run ./cmd/ogre --addr localhost:4656</code></li>
+        </ul>
+        <p>Then open <a href="../options/options.html">Settings</a> and save the address it prints, such as <span class="url">http://localhost:4656</span>. This page follows the new address by itself.</p>
+      </div>
+      <p class="cluster" id="server-actions" hidden>
+        <button class="button" id="check-again" type="button">Check again</button>
+        <a href="../options/options.html">Server somewhere else? Change the address</a>
+      </p>
+    </li>
+
+    <li class="card step" id="step-go" data-state="waiting" aria-labelledby="step-go-title">
+      <div class="step-head">
+        <h2 id="step-go-title">2. Type <span class="golink">go/</span> once</h2>
+        <span class="badge" id="step-go-badge">Waiting for step 1</span>
+      </div>
+      <p id="step-go-waiting">This step starts once your server answers. Until then, Chrome would not remember the visit.</p>
+      <div class="step-body" id="step-go-body" hidden>
+        <ol class="instructions">
+          <li>Open a new tab (<kbd id="new-tab-keys">Ctrl+T</kbd>).</li>
+          <li>Type <kbd>go/</kbd>, with the slash, and press <kbd>Enter</kbd>.</li>
+        </ol>
+        <p>Your server's home page opens in that tab. Chrome now knows <span class="golink">go</span> as a site, so from now on it opens go links instead of searching for them.</p>
+      </div>
+      <div class="status" id="go-status" role="status" aria-live="polite"></div>
+    </li>
+
+    <li class="card step" id="step-link" data-state="waiting" aria-labelledby="step-link-title">
+      <div class="step-head">
+        <h2 id="step-link-title">3. Try a go link</h2>
+        <span class="badge" id="step-link-badge">Waiting for step 2</span>
+      </div>
+      <p id="step-link-waiting">This step starts once step 2 is done.</p>
+      <div class="step-body" id="step-link-body" hidden>
+        <p>Type a go link without a slash at the end, such as <kbd>go/roadmap</kbd>, and press <kbd>Enter</kbd>. Chrome opens it on your server: its page, or "Did you mean", or an offer to create it.</p>
+        <p><strong>If Chrome searches for it instead</strong>, it hasn't learned <span class="golink">go</span> as a site yet. Type <kbd>go/</kbd> and press <kbd>Enter</kbd> once more. Until that works, end the link with a slash, <span class="golink">go/roadmap/</span>, or type it in full, <span class="golink">http://go/roadmap</span>: Chrome always opens those as addresses.</p>
+      </div>
+      <div class="status" id="link-status" role="status" aria-live="polite"></div>
+    </li>
+  </ol>
+
+  <div class="status" id="finish-status" role="status" aria-live="polite"></div>
+  <p class="cluster" id="finish-actions">
+    <button class="button button-primary" id="finish" type="button" hidden>Finish</button>
+    <button class="button button-quiet" id="skip" type="button">Don't show this page again</button>
+  </p>
+</main>
+</body>
+</html>

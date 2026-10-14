@@ -23,7 +23,7 @@ The work runs on two tracks with a gate between them.
 | L1 Walking skeleton | A link created with `curl` redirects when typed as `go/name` in Chrome | A slice of P0 | M |
 | L2 Link model | Variables, types, precedence, misses, and suggestions work through the API, proven by the PRD's own examples | P0, PRD section 5 | L |
 | L3 Web UI | Everything a person does in the browser: find, create, edit, launch, recover from a miss | P0 | L |
-| L4 Extension and MVP | Settings and first-run pages; the README gets a new user running in 5 minutes | P0 complete; equals PRD M1 | M |
+| L4 Extension and MVP | Settings and first-run pages; the README gets a new user running in 5 minutes | P0 complete, except one clause of DIR-5 (L5.6); equals PRD M1 | M |
 | L5 Daily driver | Starts at login, explains outages, backs up, exports, shows usage and history | Local-relevant P1, plus additions | L |
 | L6 Power features | Popup, address-bar suggestions, more variable types, query passthrough, restore | Local-relevant P2 | L |
 | **Gate: local release** | Ten working days of daily use with no data loss; clean-machine install passes | | |
@@ -43,6 +43,8 @@ Sequencing rules:
 - After L1, the extension tasks of L4 (L4.1–L4.5) don't depend on L2 or L3 and can run alongside them.
 
 This plan replaces the sequencing in PRD section 11. The PRD's M1 is L1–L4 here, its M2 is C1–C3, and part of its M3 moves forward into L5 and L6.
+
+One P0 clause falls outside L1–L4. DIR-5's delete confirmation "shows how recently it was used", and that needs usage counts (INS-1, P1), which arrive in L5.6. So M1 is complete at the end of L4 except for that clause: until L5.6 the confirmation names the link but cannot say when it was last used. PRD DIR-5 says the same.
 
 ## 2. Decisions
 
@@ -91,12 +93,13 @@ The product has one runtime dependency (the SQLite driver) until C1. Node.js is 
 
 ### 3.1 Repository layout
 
-This is the layout at the local-release gate. At L1 these parts do not exist yet: the `service`, `export`, `import`, `backup`, `restore`, `seed`, and `doctor` commands (L5); `internal/linkmodel/testdata/spec.json` (L2.1); `internal/osservice/` (L5.1); `docs/manual-tests.md` (L4.8); `docs/perf.md` (L4.7); and the Makefile's `install` target (L5.2). `docs/` also holds `spike-results/`, the raw data of L0. Of the extension, only `manifest.json`, `background.js`, and `lib/config.js` exist at L1.
+This is the layout at the local-release gate. At L1 these parts do not exist yet: the `service`, `export`, `import`, `backup`, `restore`, `seed`, and `doctor` commands (L5); `internal/linkmodel/testdata/spec.json` (L2.1); `internal/osservice/` (L5.1); `docs/manual-tests.md` (L4.8); `docs/perf.md`, `cmd/ogre-perf/`, and `internal/perf/` (L4.7); and the Makefile's `install` target (L5.2). `docs/` also holds `spike-results/`, the raw data of L0. Of the extension, only `manifest.json`, `background.js`, and `lib/config.js` exist at L1; section 3.7 has its layout.
 
 ```text
 .
 ├── cmd/ogre/             Command line: serve (default), version, service, export, import,
 │                         backup, restore, seed, doctor
+├── cmd/ogre-perf/        The performance run of L4.7 (make perf); not part of the shipped binary
 ├── internal/
 │   ├── linkmodel/        The rules of PRD section 5: parse, validate, match, expand, suggest.
 │   │   └── testdata/     spec.json — the PRD 5.7 examples as fixtures
@@ -107,11 +110,12 @@ This is the layout at the local-release gate. At L1 these parts do not exist yet
 │   ├── httpd/            Listeners, request guards, routing, resolver, JSON API, page handlers
 │   ├── web/              Rendering, templates/, static/ (CSS and JavaScript), embedded
 │   ├── config/           Flags, environment variables, data-directory rules
+│   ├── perf/             Generates links, drives the real binary over HTTP, judges NFR-1/2/3/5
 │   └── osservice/        launchd and systemd integration
 ├── extension/            Manifest V3 extension, loadable unpacked as it is
 ├── e2e/                  Playwright tests
 ├── docs/                 PRD.md, this plan, spike-chrome.md, manual-tests.md, perf.md
-├── Makefile              run, test, check, e2e, install
+├── Makefile              run, test, check, e2e, e2e-browsers, perf, install
 ├── package.json          Development tools only
 ├── go.mod
 └── README.md
@@ -384,10 +388,15 @@ Pattern highlighting (VAR-2) uses a monospace input with transparent text over a
 extension/
 ├── manifest.json
 ├── background.js          Service worker: installs the redirect rule, opens the first-run
-│                          page, replaces failed Directory tabs with the unreachable page
-├── lib/config.js          Directory URL: validate, store, build the redirect rule
-├── lib/api.js             Calls to the Directory with a timeout
-├── options/               Settings page (L4)
+│                          page, changes the Directory URL, gives up unused host access;
+│                          from L5, replaces failed Directory tabs with the unreachable page
+├── lib/config.js          Directory URL: validate, normalize, build the redirect rule (no chrome.*)
+├── lib/api.js             The call to the Directory's meta endpoint, with a timeout
+├── lib/settings.js        Read the stored URL, ask for host access, ask the worker to change it
+├── lib/page.js            Small DOM helpers the extension's pages share
+├── shared/page.css        The pages' stylesheet: a copy of the web UI's color tokens and
+│                          components from site.css, kept in step by hand (section 9)
+├── options/               Settings page (L4), opens in a tab
 ├── onboarding/            First-run page (L4)
 ├── unreachable/           Shown when the Directory doesn't answer (L5)
 ├── popup/                 Search and "create a go link for this page" (L6)
@@ -409,12 +418,14 @@ Dynamic rules persist across restarts and apply without the service worker runni
 | `declarativeNetRequestWithHostAccess` | The redirect rule, with no access beyond the hosts below | L1 |
 | Host `*://go/*` | Lets the rule act on go links | L1 |
 | Host `http://localhost:4655/*` | Reach the default Directory for the connection test | L1 |
-| `storage` | Remember the Directory URL | L4 |
-| `webRequest` | Observe go navigations for the first-run check and failed Directory requests for the unreachable page. Observation only, and only for the hosts above | L4 |
-| Optional host access, requested for one origin when the user saves a different Directory URL | A Directory that isn't at the default address | L4 |
+| `storage` | Remember the Directory URL and whether the first run is done | L4 |
+| `webRequest` | Observe go navigations for the first-run check (L4) and failed Directory requests for the unreachable page (L5). Observation only, and only for the hosts above. In L4 only the first-run page listens, and only while it is open; the service worker has no listener | L4 |
+| Optional host access, requested for one origin when the user saves or tests a different Directory URL | A Directory that isn't at the default address. Access no saved Directory uses is given up on the next save, and when Chrome starts or the extension is installed or updated | L4 |
 | `activeTab` | Read the current tab's URL when the user clicks "Create a go link for this page" | L6 |
 
 The manifest must declare broad optional host patterns (`http://*/*`, `https://*/*`) because the Directory's address isn't known in advance. Chrome grants only the one origin the user confirms. The `onErrorOccurred` listener of L5.3 is meant to be registered once with that same broad filter and to compare the request's origin with the configured Directory in its handler. The L0 spike supports part of this: in headless Chromium, an extension with that filter and static host access to one origin received the event for that origin only. Whether a listener registered before the user grants an optional origin then receives that origin's events was not tried; L5.3 must test it.
+
+As built in L4, the manifest also sets `minimum_chrome_version` to 116, for `runtime.getContexts`, which keeps the first-run page from opening a second time beside a copy already open. The extension keeps `directoryUrl`, `firstRunDone`, and `firstRunSawGo` in `chrome.storage.local`, and `installHandled` in `chrome.storage.session`, which only the tests read. The first-run page cannot tell a typed `go/` from one a web page in another tab opened: Chrome names the page that started a request only to an extension with access to that page. Telling them apart would take the `webNavigation` permission and its warning about browsing history, which a hint does not justify.
 
 ### 3.8 Safety in local mode
 
@@ -465,19 +476,19 @@ The data directory is `~/Library/Application Support/ogre` on macOS, `$XDG_DATA_
 | Unit | Parser, types, templates, matching, distance, ranking, configuration, migrations | Go `testing` | `make check` |
 | Fuzz | The parser never panics; canonical text re-parses to the same pattern; no value can change a destination's scheme or host | Go fuzzing | 10 seconds each in `make check`; 5 minutes each before a tag |
 | HTTP | Status codes, headers, request guards, escaping, API shapes | `net/http/httptest` | `make check` |
-| Extension logic | URL validation and rule building | `node --test` | `make check` |
+| Extension logic | URL validation and rule building, the meta check, the service worker's handling of install, start-up, and a changed URL | `node --test` | `make check` |
 | Web UI modules | The debounce, cancelling, and ordering of calls made while typing; the URL check of `lib/dom.js` | `node --test` over `e2e/unit` | `make check` |
 | Type check | All browser and extension code | `tsc --noEmit` | `make check` |
-| End to end | The redirect through the real extension; PRD scenarios 1–8; the unreachable page. A content security policy violation, console error, or uncaught error on a Directory page fails the test | Playwright with its bundled Chromium | `make check` |
-| Accessibility | No serious or critical issue on the main pages (NFR-21) | axe, run by Playwright | `make check` |
-| Performance | NFR-1, NFR-2, NFR-3, NFR-5 with 100,000 links | Go benchmarks and a load script | Before each tag |
-| Manual | Address-bar behavior, permission prompts, the service after a reboot | `docs/manual-tests.md` | Before each tag |
+| End to end | The redirect through the real extension, with path, query, and encoding intact; the settings and first-run pages; PRD scenarios 1–8; the unreachable page. In Firefox and WebKit, PRD scenarios 1–7 in the web UI, without the extension. A content security policy violation, console error, or uncaught error on a Directory page or an extension page fails the test | Playwright with its bundled Chromium; its Firefox and WebKit for the web UI only (`make e2e-browsers`) | `make check` |
+| Accessibility | No serious or critical issue on the main pages and the extension's pages, in light and dark, and nothing wider than 375 pixels (NFR-21) | axe, run by Playwright; the web UI's pages in all three engines | `make check` |
+| Performance | NFR-1, NFR-2, NFR-3, NFR-5 with 100,000 links | Go benchmarks (`make bench`); `make perf` (`cmd/ogre-perf`), recorded in `docs/perf.md` | Before each tag |
+| Manual | Address-bar behavior, permission prompts, a link clicked on a public page, Chrome restarts, the real Firefox and Safari, the service after a reboot | `docs/manual-tests.md` | Before each tag |
 
 Two things automated tests cannot cover, which is why the manual list exists: Playwright cannot type into Chrome's address bar, and Chrome-branded builds no longer accept the `--load-extension` flag that test tools rely on (Chromium still does).
 
 A task is done when its code and tests land together, `make check` passes, any behavior a user sees is described in the README or on the setup page, and the commit names the PRD requirements it advances.
 
-`make check` is the gate before every commit. It pins `staticcheck` to a version and needs the network the first time; `STATICCHECK_OPTIONAL=1` skips that step visibly. The fuzz step retries only when Go's fuzz engine reports its own time limit as a failure with no failing input. The repository has a remote on GitHub; a workflow that runs the same command on Linux, with Chromium under a virtual display, is still to be written (section 9).
+`make check` is the gate before every commit. It pins `staticcheck` to a version and needs the network the first time; `STATICCHECK_OPTIONAL=1` skips that step visibly. Firefox and WebKit are a separate download (`npx playwright install firefox webkit`); without them the gate fails and says so, and `E2E_BROWSERS_OPTIONAL=1` skips them visibly. The end-to-end tests run their own server, on a temporary database, at `localhost:4655`, the extension's default. When the developer's own Directory holds that port, `OGRE_E2E_PORT=46555 make check` runs them on another port and points each test browser there through the extension's settings. The one request that can still reach port 4655 then is the first-run page's read of the `meta` endpoint at install. The fuzz step retries only when Go's fuzz engine reports its own time limit as a failure with no failing input. The repository has a remote on GitHub; a workflow that runs the same command on Linux, with Chromium under a virtual display, is still to be written (section 9).
 
 ## 5. Local track
 
@@ -588,7 +599,35 @@ Each milestone lists what it **completes** (requirements fully met at its end) a
 
 ### L4 — Extension and local MVP
 
-**Goal.** Finish the extension's P0 pages, then prove the whole P0 set on a clean machine. This closes the PRD's M1.
+**Goal.** Finish the extension's P0 pages, then prove the whole P0 set on a clean machine. This closes the PRD's M1, except for one clause of DIR-5 (section 1).
+
+**Status, 2026-10-14: done, except the steps that need a person: the timed README run, the Chrome stable pass of `docs/manual-tests.md`, and the `v0.1.0` tag.** `make check` passes from a clean state (`rm -rf bin`). Besides the steps of L3, it now runs 71 extension unit tests, 74 end-to-end tests in headless Chromium with the extension loaded, and, as its last step (`make e2e-browsers`), 32 tests in Playwright's Firefox and WebKit. Those run PRD scenarios 1 to 7 in the web UI without the extension, the axe scan in light and dark, a width of 375 pixels, and the pattern highlighting. Edge is not run; Chromium stands in for it. Every gate run in L4 used `OGRE_E2E_PORT=46555`, because the owner's own Directory held port 4655, so the tests' default-port branches have not run yet. An independent verification confirmed EXT-1 to EXT-4, NFR-18, NFR-21 on the extension's pages, and the part of DEP-2 a machine can do: from a fresh clone the README's steps lead to a working go link, and a first `go run` with empty caches took 16.7 s. A logging proxy showed that the only request the extension makes itself is `GET /-/api/v1/meta`, to the addresses it was set to or asked to test. Three reviewers found one high-severity issue (nothing tested the perf tool's verdicts) and nine medium ones; all are fixed.
+
+The performance run of L4.7 passes at 100,000 links ([perf.md](perf.md), three runs, medians): a hit takes 0.008 ms at the 95th percentile, miss pages 0.088 and 2.88 ms, search 18.9 and 19.6 ms, and 200 resolutions per second are served with no error, at a peak of 412 MiB against 512 MiB. The first three runs failed NFR-5 on memory, at 517 to 536 MiB. The fix: routes with the same regular expression share one compiled expression (`internal/linkmodel/regexcache.go`, a cache of weak pointers that never keeps an expression alive), and text buffers are sized before they are filled. Three caveats:
+
+- The runs were on battery, from a working tree with uncommitted changes. That breaks two items of perf.md's own checklist, so the runs are to be repeated before the tag.
+- The 100 MiB of headroom depends on shared regexes: the generated links use three distinct expressions. A Directory where every regex route had its own would come close to the limit again (section 9).
+- A laptop core is faster than a cloud vCPU. C2.9 is the real test of NFR-5.
+
+L4.5 checked which `Sec-Fetch-Site` the Directory receives through the extension. A typed go link redirected by the rule, and a tab the extension opens with `chrome.tabs.create`, arrive as `none`. A link clicked on an extension page arrives as `cross-site`, like any other site's. So the forms' rule of L3.6 stays as it is: no prefill a user starts is lost. No extension page links to the Directory today; the popup of L6.7 must open its tabs with `chrome.tabs.create`. `e2e/fetch-metadata.spec.mjs` pins all three; that real typing gives `none` is manual step B7.
+
+Still to do, by a person:
+
+- Push the L4 commit. Until then a clone from GitHub gets L3, with no settings or first-run pages, and the timed run cannot start.
+- Before the tag, from a clean checkout, on mains power, with nothing on port 4655: `make check` without `OGRE_E2E_PORT`, `make fuzz FUZZTIME=5m` (section 4), and `make perf` three times, pasted into perf.md.
+- The timed README run (L4.6, DEP-2), by someone new to the project, on a clean macOS account. An estimate with Chrome, Go, and git already installed is 5 to 7 minutes; the README now says five minutes holds only then.
+- The Chrome stable pass of `docs/manual-tests.md`, with section H in the real Firefox and Safari. D2 decides whether the "Not tested yet" note on Incognito leaves the setup page and the README; F3 decides what the setup page says about the search shortcut (section 9).
+- L4.9: decide the version, then tag.
+
+Decisions taken where the PRD and this plan were silent:
+
+- A Directory URL without a scheme (`localhost:4655`) is refused, with the corrected form in the message, not completed silently: a Directory elsewhere may need `https`. A port alone (`4771`) gets `http://localhost:4771` as its suggestion. The host `go` is refused on any port, since every go link would come back to it. IPv6 literals and international names are accepted; the latter are stored and shown as punycode, so a look-alike name is visible.
+- An address the user does not grant host access to is not saved, though the redirect rule alone would not need the access.
+- The first-run page checks the server when it opens, on "Check again", and when it regains focus or becomes visible; it never polls. It follows an address saved in another tab without a reload, tells "Not answering", "Wrong server", and "Wrong version" apart, and leaves the query out of the go link it shows in step 3.
+- Routes another site prefilled now keep their warning when the create form hands them to the edit form through "Add this route" (`prefill=foreign`). Before, that hand-over skipped the check of L3.6, and one click on Save added another site's route to an existing link. A reviewer found this in L3 code.
+- The perf tool also judges NFR-5 on the wait from each request's scheduled send, which includes time queued for the server's one CPU that server time cannot see, and it fails a phase that finished early.
+- Headless Chromium never answers Chrome's permission prompt. The tests approve access through `chrome.developerPrivate.addHostPermission` on `chrome://extensions`; the extension's own `permissions.request` then resolves with no prompt. The tests wait for the worker's `installHandled` mark instead of sleeping, and then close the first-run tab opened at install, except in the first-run page's own tests.
+- WebKit reports a content security policy violation for every `<select>`, from the engine's own inline style. It is harmless and cannot be fixed in our code, so the end-to-end watch lets exactly that report through in WebKit and nothing else (section 9).
 
 **Completes:** EXT-2, EXT-3, EXT-4, DEP-2, NFR-1, NFR-2, NFR-3, NFR-5, NFR-18, NFR-20. **Starts:** NFR-19.
 
@@ -600,9 +639,9 @@ Each milestone lists what it **completes** (requirements fully met at its end) a
 - **L4.6 README.** Prerequisites, the one command, loading the extension, the first link, troubleshooting. Timed on a clean macOS user account by someone new to the project: five minutes or less.
 - **L4.7 Performance run.** Generate 100,000 links. Over real HTTP, measure server time at the 95th percentile for hits, miss pages, and search, plus memory use and startup time. Record the results in `docs/perf.md` against NFR-1, NFR-2, NFR-3, and NFR-5.
 - **L4.8 Manual browser pass.** Write `docs/manual-tests.md` — the address-bar checks no automated test can perform — and run it on Chrome stable on macOS. Run PRD scenarios 1 to 7 in the web UI on current Firefox, Safari, and Edge, by hand or with Playwright's Firefox and WebKit in CI (NFR-20).
-- **L4.9 Tag `v0.1.0`.**
+- **L4.9 Tag `v0.1.0`.** Open: which version the tagged code reports. `cmd/ogre/main.go` has `var version = "0.1.0-dev"` and the Makefile's `VERSION` defaults to the same, so `go run ./cmd/ogre`, `ogre version`, and the `meta` endpoint say `0.1.0-dev`; the extension's manifest says `0.1.0`. Either set `0.1.0` in the tagged commit, or accept `-dev` and say so in the tag's notes.
 
-**Done when** every P0 requirement in Appendix A is met and the PRD's M1 criteria hold: the P0 fixtures pass, and the timed README run succeeds.
+**Done when** every P0 requirement in Appendix A is met, DIR-5 apart from its last-use clause (section 1), and the PRD's M1 criteria hold: the P0 fixtures pass, and the timed README run succeeds.
 
 ### L5 — Daily driver
 
@@ -736,18 +775,21 @@ Ordered after the team release, from what usage shows.
 | Risk | Effect | Response |
 |---|---|---|
 | A Chrome behavior in Appendix B doesn't hold | A design change in the extension | L0 comes before any product code, and each check has a fallback |
-| Chrome's Local Network Access rules tighten | A go link clicked on a public page may prompt or fail when the Directory is on loopback | Check 11; rerun the manual list on each Chrome release during the local track; the fallback is to route clicked links through an extension page |
+| Chrome's Local Network Access rules tighten | A go link clicked on a public page may prompt or fail when the Directory is on loopback | Check 11; rerun the manual list, whose step B8 clicks a go link on a public HTTPS page, on each Chrome release during the local track; the fallback is to route clicked links through an extension page |
 | Pattern highlighting misbehaves in some browser | L3.6 takes longer | The fallback of section 3.6 still meets VAR-2 |
 | Browser code without a build step becomes hard to maintain | Slower UI work in L5 and L6 | Type-checked from day one; small components. Switching to TypeScript sources later is confined to `internal/web/static` and `extension/` |
 | The pure-Go SQLite driver is slower than expected | NFR-3 or NFR-5 missed | The resolver never touches the database; L4.7 measures the rest; a cgo driver fits behind the same interface |
 | Unpacked extensions need Chrome's developer mode | Friction for daily local use | Acceptable for the owner. If it grates, bring C2.7 forward — packaging doesn't depend on the rest of the cloud track |
 | Autostart differs between launchd and systemd | The service doesn't come up after login on some machine | A reboot test per OS on the manual list; `ogre doctor` |
 | L5 and L6 delay the cloud track | A later team release | L6 is the cut line |
+| A Directory where most regex routes have an expression of their own | NFR-5's memory limit is missed: the 100 MiB of headroom measured in L4.7 comes mostly from routes sharing compiled expressions, and the generated links use only three. Without sharing, peak memory is estimated at about the limit | C2.9 measures the deployed form. If needed, lower the Go collector's heap target |
+| `extension/shared/page.css` is a hand-made copy of the web UI's color tokens and components in `site.css` | The extension's pages drift from the web UI, or lose the contrast `site.css` was checked for | The tokens match today; only a comment in `page.css` asks to copy a change. A test that compares the tokens of both files would catch drift |
+| From L5 the background service holds port 4655 | `make check` fails on the busy port | Stop the service for the gate, or run it with `OGRE_E2E_PORT` |
 
-Open points from L3, to settle in L4:
+Open points from L3, settled in L4:
 
-- NFR-20 beyond Chromium. Only Playwright's bundled Chromium runs in `make check`. An ad hoc run in Playwright's WebKit passed the core flows, but logged a content security policy `style-src` report each time a `<select>` was created (the type selector of the forms); `document.createElement('select')` alone does it. It looks like a WebKit quirk and the form still works; check it in Safari. Firefox and Edge were not run.
-- Whether Chrome's search shortcut turns `/` into `%2F` in `%s`. If it does, the shortcut on the setup page works only for links without variables.
+- NFR-20 beyond Chromium. Closed: `make check` runs PRD scenarios 1 to 7, the accessibility scan, 375 pixels, and the pattern highlighting in Playwright's Firefox and WebKit (`make e2e-browsers`). The WebKit report is an engine quirk, not our code: WebKit refuses an inline style of its own inside every `<select>`, even in a static page with no script or stylesheet, and the select draws the same with and without the policy. `e2e/webkit-select-csp.spec.mjs` pins it and fails the day WebKit stops; the end-to-end watch lets that one report through in WebKit only. Edge is covered by Chromium standing in for it. The real Firefox and Safari are section H of `docs/manual-tests.md`.
+- Whether Chrome's search shortcut turns `/` into `%2F` in `%s`. Moved to manual step F3; still open until that step has run. If it does, the setup page must say the shortcut works only for links without variables.
 
 Open points that don't block L0–L4:
 
@@ -776,7 +818,8 @@ Notes on requirements that span milestones:
 - SRCH-2, SRCH-3, and VAR-3 are complete in L3 as far as their own wording goes. The parts they tie to later features arrive with those features: the usage tie-break and the most-used list in L5.6, the range and value-list editors in L6.1.
 - NFR-17 holds from L2 on. It is checked again whenever something new is recorded: usage in L5.6, misses in C2.6.
 - NFR-16's per-user last-active date arrives in C1.8; the rest is L5.6.
-- NFR-20 holds at phone width and in Chromium from L3; the other browsers are checked in L4.8.
+- NFR-20 holds at phone width and in Chromium from L3. From L4, `make check` also runs the web UI in Playwright's Firefox and WebKit; Edge is covered by Chromium standing in for it, and the real Firefox and Safari by the manual list.
+- DIR-5 is P0 but listed under L5: the confirmation exists from L3.7, and the last use it shows needs INS-1 (L5.6). M1 is complete without that clause (section 1).
 - DEP-7's health endpoint and structured logs exist from L1; readiness and metrics complete it in C2.2.
 - DEP-8's backups and export exist from L5; the runbook completes it in C2.5.
 

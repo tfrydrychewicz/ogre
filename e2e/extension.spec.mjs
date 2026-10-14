@@ -4,7 +4,8 @@
 // The Directory is played by Playwright, which answers requests for
 // http://localhost:4655 inside the browser. Nothing listens on port 4655 and
 // no request leaves the browser, so these tests run whether or not a real
-// Directory is running on this machine.
+// Directory is running on this machine. They are about the extension as
+// installed, so they use its default address even under OGRE_E2E_PORT.
 
 import { expect, test } from "@playwright/test";
 
@@ -12,13 +13,22 @@ import { DEFAULT_DIRECTORY_URL, buildRedirectRule } from "../extension/lib/confi
 import { dynamicRules, launchWithExtension } from "./lib/harness.mjs";
 
 test("a fresh install leaves exactly the redirect rule", async () => {
-  const browser = await launchWithExtension({ waitForRule: false });
+  const browser = await launchWithExtension({ directory: DEFAULT_DIRECTORY_URL, waitForRule: false });
   try {
     expect(browser.serviceWorker.url()).toBe(`chrome-extension://${browser.extensionId}/background.js`);
     const manifest = await browser.serviceWorker.evaluate(() => chrome.runtime.getManifest());
     expect(manifest.name).toBe("Ogre");
-    expect(manifest.permissions).toEqual(["declarativeNetRequestWithHostAccess"]);
+    // Exactly the permissions of plan section 3.7 that L4 needs; the
+    // reasons are in extension/README.md, and manifest.test.js pins the same.
+    expect(manifest.permissions).toEqual(["declarativeNetRequestWithHostAccess", "storage", "webRequest"]);
     expect(manifest.host_permissions).toEqual(["*://go/*", "http://localhost:4655/*"]);
+    expect(manifest.optional_host_permissions).toEqual(["http://*/*", "https://*/*"]);
+    expect(manifest.content_scripts).toBeUndefined();
+    // What Chrome actually granted at install: the required hosts, and none
+    // of the optional ones until the user allows one.
+    const granted = await browser.serviceWorker.evaluate(() => chrome.permissions.getAll());
+    expect(granted.origins?.slice().sort()).toEqual(["*://go/*", "http://localhost:4655/*"]);
+    expect(granted.permissions?.slice().sort()).toEqual(["declarativeNetRequestWithHostAccess", "storage", "webRequest"]);
 
     // The worker installs the rule a moment after it starts.
     await expect.poll(() => dynamicRules(browser.serviceWorker)).toEqual([buildRedirectRule(DEFAULT_DIRECTORY_URL)]);
@@ -34,10 +44,10 @@ test("a fresh install leaves exactly the redirect rule", async () => {
 // a restart of Chrome is on the manual list; the onStartup path is covered by
 // extension/background.test.js.
 test("a second launch on the same profile leaves exactly one rule", async () => {
-  const first = await launchWithExtension();
+  const first = await launchWithExtension({ directory: DEFAULT_DIRECTORY_URL });
   await first.close();
 
-  const second = await launchWithExtension({ userDataDir: first.userDataDir, waitForRule: false });
+  const second = await launchWithExtension({ userDataDir: first.userDataDir, directory: DEFAULT_DIRECTORY_URL, waitForRule: false });
   try {
     expect(second.extensionId).toBe(first.extensionId);
     await expect.poll(() => dynamicRules(second.serviceWorker)).toEqual([buildRedirectRule(DEFAULT_DIRECTORY_URL)]);
@@ -47,13 +57,16 @@ test("a second launch on the same profile leaves exactly one rule", async () => 
 });
 
 test("the rule sends a go link to the same path and query on the Directory", async () => {
-  const browser = await launchWithExtension();
+  const browser = await launchWithExtension({ directory: DEFAULT_DIRECTORY_URL });
   try {
     /** @type {string[]} what the stand-in Directory was asked for */
     const asked = [];
     await browser.context.route(`${DEFAULT_DIRECTORY_URL}/**`, async (route) => {
-      if (new URL(route.request().url()).pathname === "/favicon.ico") {
-        await route.fulfill({ status: 404 }); // the browser's own request, not a go link
+      // Not go links: the browser's own request for an icon, and the
+      // first-run page (open in another tab since install) asking the
+      // Directory whether it runs.
+      if (!route.request().isNavigationRequest()) {
+        await route.fulfill({ status: 404 });
         return;
       }
       asked.push(`${route.request().method()} ${route.request().url()}`);
