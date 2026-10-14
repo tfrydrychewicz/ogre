@@ -23,7 +23,7 @@
 
 GO_PACKAGES := ./cmd/... ./internal/...
 GO_DIRS     := cmd internal
-VERSION     ?= 0.1.0-dev
+VERSION     ?= 0.1.0
 FUZZTIME    ?= 10s
 FUZZMINIMIZETIME ?= 1s
 # Which benchmarks "make bench" runs: a regular expression on their names.

@@ -196,7 +196,7 @@ export async function portInUse(port) {
  * as an Ogre server, and the process id when `lsof` knows it.
  *
  * @param {number} port
- * @returns {Promise<string>} for example "an Ogre server (version 0.1.0-dev), pid 4242"
+ * @returns {Promise<string>} for example "an Ogre server (version 0.1.0), pid 4242"
  */
 async function describePortHolder(port) {
   let who = "another program";

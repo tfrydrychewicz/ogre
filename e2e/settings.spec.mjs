@@ -140,7 +140,10 @@ test("saving another Directory re-points go links, and saving back releases its 
       await page.keyboard.press("Enter");
       await expect(result.locator(".notice-success")).toContainText(`Go links now go to ${serverB.url}.`);
       await expect(page.locator("#save")).toBeFocused();
-      await expect(result).toContainText(`An Ogre server, version 0.1.0-dev, answers at ${serverB.url}.`);
+      await expect(result).toContainText(
+        // Any release or development version: the number changes with every release.
+        new RegExp(`An Ogre server, version \\d+\\.\\d+\\.\\d+(-dev)?, answers at ${serverB.url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.`),
+      );
       await expect(field).toHaveValue(serverB.url);
       await expect(page.locator("#current")).toHaveText(serverB.url);
       await waitForRedirectRule(serviceWorker, serverB.url, 5000);

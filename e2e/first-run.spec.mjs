@@ -160,7 +160,10 @@ test("with the Directory up: it opens once, confirms go/ and a go link, and neve
 
     await test.step("step 1: the Directory answers", async () => {
       await expect(page.locator("#step-server-badge")).toHaveText("Done");
-      await expect(page.locator("#server-status")).toContainText(`An Ogre server (version 0.1.0-dev) answers at ${DIRECTORY_URL}.`);
+      await expect(page.locator("#server-status")).toContainText(
+        // Any release or development version: the number changes with every release.
+        new RegExp(`An Ogre server \\(version \\d+\\.\\d+\\.\\d+(-dev)?\\) answers at ${DIRECTORY_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.`),
+      );
       await expect(page.locator("#server-help")).toBeHidden();
       await expect(page.locator("#step-go-badge")).toHaveText("Your turn");
       await expect(page.locator("#step-go-body")).toBeVisible();
