@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Qualifying run at 100,000 links done on 2026-10-14 (three runs, median below): NFR-1, NFR-2, NFR-3 and NFR-5 pass. The first three runs failed NFR-5 on memory; the fix and its effect are recorded under [Results](#results). Not yet repeated from a clean checkout on mains power. |
+| **Status** | Qualifying run at 100,000 links done on 2026-10-14 from a clean clone of ca53300 on mains power (three runs, median below): NFR-1, NFR-2, NFR-3 and NFR-5 pass. The first runs failed NFR-5 on memory; the fix and its effect are recorded under [Results](#results). |
 | **Requirements** | NFR-1, NFR-2, NFR-3, NFR-5 of [PRD.md](PRD.md) section 8 |
 | **Tool** | `cmd/ogre-perf` (code in `internal/perf`), run with `make perf` |
 | **When** | Before each tag (plan section 4), on a quiet machine |
@@ -127,52 +127,56 @@ The share of one core the server used during the phase is reported as the headro
 
 ### Qualifying run (100,000 links)
 
-`make perf` with unchanged defaults, three times in a row, after the fix described [below](#nfr-5-failed-first-peak-memory). Each figure is the median of the three runs; the range in brackets is the lowest and highest of the three. Every run exited 0 with all four requirements passing.
+`make perf` with unchanged defaults, three times in a row, from a clean clone of the commit to be tagged, on mains power, with nothing listening on port 4655. Each figure is the median of the three runs; the range in brackets is the lowest and highest of the three. Every run exited 0 with all four requirements passing. Just before these runs, the same clone passed `make check` (on the default port) and `make fuzz FUZZTIME=5m` (six targets, five minutes each, no failure).
 
 | Field | Value |
 |---|---|
-| Date | 2026-10-14, runs started 18:23, 18:25, 18:27 CEST |
-| Commit | d6d91bf-dirty: the uncommitted L4 work in the tree, plus the memory fix below |
+| Date | 2026-10-14, runs started 19:37, 19:38, 19:40 CEST |
+| Commit | ca53300, a clean clone |
 | Ogre | ogre 0.1.0-dev, built by `make perf` (`make build` first) |
 | Machine | Mac14,9 (MacBook Pro, Apple M2 Pro, 10 cores), 16 GiB; macOS 26.5 (25F71), darwin/arm64 |
-| Power | Battery (65%, discharging). **Not on mains power**, as the checklist asks |
+| Power | AC power |
 | Go | go1.26.1 darwin/arm64 |
-| Links | 100,000 (seed 1), about 166,000 routes; database 101.3 MiB; generated in 0.67 s, written in 2.96 s |
+| Links | 100,000 (seed 1); database 101.3 MiB |
 | Server | GOMAXPROCS=1, request log at level info |
 | Client | 1 in flight, 2000 requests per class, warm-up 200 |
 | Run by | Claude (coding agent) for the owner |
-| Other load on the machine | No other build, test or agent running. `top` just before: 86% idle, load average 2.42 / 5.59 / 5.38 (1, 5, 15 min; the 5- and 15-minute figures still held the agents that had just finished), the owner's Chrome about 10% of a core, an idle `go run ./cmd/ogre` in a terminal (its own port and database, not touched), 847 MiB of RAM free with 6.2 GiB compressed. Load average 2.47 when the three runs started. |
+| Other load on the machine | No other build, test or agent. The first run started straight after the five-minute fuzz runs, which use every core: its load average read 45 (1 min), falling to 12 and then 5 at the second and third. The first run's numbers are within the range of the other two, so it is kept. |
 
 | Request | n | Server p50 | Server p95 | Server p99 | Round trip p95 | Limit (p95) | Verdict |
 |---|--:|--:|--:|--:|--:|---|---|
-| Hit (302) | 2000 | 0.004 ms [0.004–0.004] | 0.008 ms [0.008–0.008] | 0.011 ms [0.011–0.012] | 0.124 ms [0.117–0.135] | 20 ms (NFR-1) | PASS |
-| Miss page, known name | 2000 | 0.048 ms [0.047–0.054] | 0.088 ms [0.087–0.111] | 0.152 ms [0.145–0.153] | 0.163 ms [0.163–0.267] | 200 ms (NFR-2) | PASS |
-| Miss page, unknown name | 2000 | 2.29 ms [2.28–2.29] | 2.88 ms [2.87–2.88] | 3.00 ms [2.99–3.01] | 3.01 ms [3.00–3.02] | 200 ms (NFR-2) | PASS |
-| Search API, one word | 2000 | 14.40 ms [14.29–14.50] | 18.93 ms [18.76–19.00] | 22.35 ms [22.31–22.63] | 19.34 ms [19.09–19.39] | 150 ms (NFR-3) | PASS |
-| Search API, two words | 2000 | 14.98 ms [14.83–15.03] | 19.58 ms [18.97–19.73] | 23.86 ms [23.68–24.04] | 19.93 ms [19.68–20.12] | 150 ms (NFR-3) | PASS |
-| Home page | 2000 | 4.90 ms [4.75–5.25] | 5.89 ms [5.62–6.16] | 6.38 ms [6.03–6.54] | 6.19 ms [5.93–6.53] | none | — |
+| Hit (302) | 2000 | 0.003 ms [0.003–0.003] | 0.006 ms [0.006–0.006] | 0.009 ms [0.009–0.010] | 0.087 ms [0.086–0.093] | 20 ms (NFR-1) | PASS |
+| Miss page, known name | 2000 | 0.038 ms [0.037–0.040] | 0.070 ms [0.068–0.083] | 0.118 ms [0.112–0.126] | 0.144 ms [0.135–0.206] | 200 ms (NFR-2) | PASS |
+| Miss page, unknown name | 2000 | 1.60 ms [1.60–1.63] | 2.05 ms [2.04–2.06] | 2.25 ms [2.22–2.28] | 2.17 ms [2.16–2.18] | 200 ms (NFR-2) | PASS |
+| Search API, one word | 2000 | 10.30 ms [10.24–10.32] | 13.49 ms [13.46–13.62] | 15.61 ms [15.58–15.99] | 13.73 ms [13.69–13.93] | 150 ms (NFR-3) | PASS |
+| Search API, two words | 2000 | 10.64 ms [10.64–10.72] | 13.74 ms [13.62–13.76] | 17.02 ms [17.01–17.17] | 14.01 ms [13.98–14.10] | 150 ms (NFR-3) | PASS |
+| Home page | 2000 | 2.47 ms [2.38–2.49] | 2.92 ms [2.77–2.96] | 3.20 ms [3.03–3.29] | 3.12 ms [2.96–3.19] | none | — |
 
 | Measure | Result |
 |---|---|
-| Startup to first health check | 1469 ms (median of the three runs' medians); all nine starts 1415–1495 ms. No NFR limits it. |
-| RSS after startup | 316.0 MiB [306.5–317.4] |
-| RSS peak while serving | 412.3 MiB [402.6–417.3], limit 512 MiB (NFR-5) |
-| RSS after the load (end of the run, after the fixed-rate phase) | 412.3 MiB [401.8–417.3] |
-| Fixed rate 200/s for 30 s | 6000 sent, 200.0/s answered, 0 errors, 0 late in every run; the phase took 29.996 s. Server CPU 13.3% of one core [13.2–13.3]. Server p95: hits 0.034 ms [0.032–0.035], misses 6.03 ms [5.97–6.26]. From the scheduled send to the answer, p95: hits 1.90 ms [1.84–2.24], misses 7.73 ms [7.52–7.82]. |
+| Startup to first health check | 1008 ms (median of the three runs' medians); all nine starts 977–1062 ms. No NFR limits it. |
+| RSS after startup | 310.8 MiB [307.4–321.9] |
+| RSS peak while serving | 421.2 MiB [407.4–422.7], limit 512 MiB (NFR-5) |
+| RSS after the load (end of the run, after the fixed-rate phase) | 407.4 MiB [405.1–422.7] |
+| Fixed rate 200/s for 30 s | 6000 sent, 200.0/s answered, 0 errors, 0 late in every run. Server CPU 12.8% of one core [12.8–13.1]. Server p95: hits 0.045 ms [0.045–0.049], misses 5.92 ms [5.82–6.16]. From the scheduled send to the answer, p95: hits 2.41 ms [2.37–2.59], misses 7.51 ms [7.46–7.69]. |
 
 | Requirement | Verdict | Detail |
 |---|---|---|
-| NFR-1 | PASS | Hit p95 0.008 ms against 20 ms; 0.034 ms under the fixed rate |
-| NFR-2 | PASS | Known-name miss p95 0.088 ms, unknown-name miss p95 2.88 ms, against 200 ms; misses 6.03 ms under the fixed rate (7.73 ms from the scheduled send) |
-| NFR-3 | PASS | One word p95 18.93 ms, two words p95 19.58 ms, against 150 ms |
-| NFR-5 | PASS | 200.0/s of 200/s with no error and none late; peak RSS 412.3 MiB against 512 MiB (about 100 MiB, a fifth, to spare); GOMAXPROCS=1 |
+| NFR-1 | PASS | Hit p95 0.006 ms against 20 ms; 0.045 ms under the fixed rate |
+| NFR-2 | PASS | Known-name miss p95 0.070 ms, unknown-name miss p95 2.05 ms, against 200 ms; misses 5.92 ms under the fixed rate (7.51 ms from the scheduled send) |
+| NFR-3 | PASS | One word p95 13.49 ms, two words p95 13.74 ms, against 150 ms |
+| NFR-5 | PASS | 200.0/s of 200/s with no error and none late; peak RSS 421.2 MiB against 512 MiB (about 90 MiB to spare); GOMAXPROCS=1 |
 
 What these numbers leave open:
 
-- **Memory is the tight one.** The latency limits are met at 8 to 2,500 times below their limit; memory at 0.8 of it. The margin is smaller than it looks for two reasons. Peak RSS follows the Go collector's heap target, which is twice the live heap by default, so every megabyte that the index keeps costs about two of RSS. And the fix below shares compiled regular expressions: the generated Directory uses three distinct expressions, so sharing removes nearly all their cost here. A Directory where every regex route had its own expression would get none of that back and would land at about the limit again: about 45 MiB more live heap, roughly 90 MiB more RSS, which is where the runs before the fix were (517 to 536 MiB, less the few MiB the builder changes saved). Real Directories repeat expressions (a ticket key, a month), but how much is not known. C2.9's container test, which measures memory as the container's limit counts it, settles NFR-5 for the deployed form.
-- **Search is the slowest request**, at about an eighth of its limit: it scans every link in memory (plan section 3.2). Not a problem at 100,000 links on this machine; it is the first thing to look at on a slower vCPU.
-- **Startup takes about 1.5 s** at 100,000 links (it was 1.8 s before the fix): opening the database, reading every link and compiling it. No requirement limits it.
-- Battery power and a working tree with uncommitted changes break two items of the checklist above. Re-run from a clean checkout on mains power before the tag; the run takes about six minutes for all three.
+- **Memory is the tight one.** The latency limits are met at 10 to 3,000 times below their limit; memory at 0.82 of it. The margin is smaller than it looks for two reasons. Peak RSS follows the Go collector's heap target, which is twice the live heap by default, so every megabyte that the index keeps costs about two of RSS. And the fix below shares compiled regular expressions: the generated Directory uses three distinct expressions, so sharing removes nearly all their cost here. A Directory where every regex route had its own expression would get none of that back and would land at about the limit again: about 45 MiB more live heap, roughly 90 MiB more RSS. Real Directories repeat expressions (a ticket key, a month), but how much is not known. C2.9's container test, which measures memory as the container's limit counts it, settles NFR-5 for the deployed form.
+- **Search is the slowest request**, at about a tenth of its limit: it scans every link in memory (plan section 3.2). Not a problem at 100,000 links on this machine; it is the first thing to look at on a slower vCPU.
+- **Startup takes about 1 s** at 100,000 links: opening the database, reading every link and compiling it. No requirement limits it.
+- A laptop core is faster than a cloud vCPU; C2.9 is the real test.
+
+### Earlier run: battery, uncommitted tree
+
+The first qualifying attempt, at 18:23–18:27 the same day, ran on battery from the uncommitted L4 tree (d6d91bf-dirty), which breaks two items of the checklist. It passed all four requirements with numbers a little slower than the run above, as expected on battery: hit p95 0.008 ms, misses 0.088 and 2.88 ms, search 18.93 and 19.58 ms, peak RSS 412.3 MiB, startup 1469 ms. It is superseded by the run above.
 
 ### NFR-5 failed first: peak memory
 

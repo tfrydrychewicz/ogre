@@ -605,7 +605,7 @@ Each milestone lists what it **completes** (requirements fully met at its end) a
 
 The performance run of L4.7 passes at 100,000 links ([perf.md](perf.md), three runs, medians): a hit takes 0.008 ms at the 95th percentile, miss pages 0.088 and 2.88 ms, search 18.9 and 19.6 ms, and 200 resolutions per second are served with no error, at a peak of 412 MiB against 512 MiB. The first three runs failed NFR-5 on memory, at 517 to 536 MiB. The fix: routes with the same regular expression share one compiled expression (`internal/linkmodel/regexcache.go`, a cache of weak pointers that never keeps an expression alive), and text buffers are sized before they are filled. Three caveats:
 
-- The runs were on battery, from a working tree with uncommitted changes. That breaks two items of perf.md's own checklist, so the runs are to be repeated before the tag.
+- Repeated before the tag on 2026-10-14 from a clean clone of ca53300, on mains power, with port 4655 free: `make check` on the default port, `make fuzz FUZZTIME=5m` and three `make perf` runs all passed; perf.md holds those numbers (hit p95 0.006 ms, misses 0.070 and 2.05 ms, search 13.5 and 13.7 ms, peak RSS 421 MiB).
 - The 100 MiB of headroom depends on shared regexes: the generated links use three distinct expressions. A Directory where every regex route had its own would come close to the limit again (section 9).
 - A laptop core is faster than a cloud vCPU. C2.9 is the real test of NFR-5.
 
@@ -613,8 +613,6 @@ L4.5 checked which `Sec-Fetch-Site` the Directory receives through the extension
 
 Still to do, by a person:
 
-- Push the L4 commit. Until then a clone from GitHub gets L3, with no settings or first-run pages, and the timed run cannot start.
-- Before the tag, from a clean checkout, on mains power, with nothing on port 4655: `make check` without `OGRE_E2E_PORT`, `make fuzz FUZZTIME=5m` (section 4), and `make perf` three times, pasted into perf.md.
 - The timed README run (L4.6, DEP-2), by someone new to the project, on a clean macOS account. An estimate with Chrome, Go, and git already installed is 5 to 7 minutes; the README now says five minutes holds only then.
 - The Chrome stable pass of `docs/manual-tests.md`, with section H in the real Firefox and Safari. D2 decides whether the "Not tested yet" note on Incognito leaves the setup page and the README; F3 decides what the setup page says about the search shortcut (section 9).
 - L4.9: decide the version, then tag.
