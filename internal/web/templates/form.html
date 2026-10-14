@@ -1,0 +1,96 @@
+{{/*
+  The create and edit form (plan L3.6). Data: httpd.formPage.
+
+  The server renders the frame; static/js/form.js builds the route rows from
+  data-initial (the draft as base64-encoded JSON, so none of its text is
+  markup; never a script) and fills in whatever the validate endpoint reports. Editing needs
+  JavaScript: without it the form stays hidden and the <noscript> says so.
+*/}}
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/link.css"}}">
+<link rel="stylesheet" href="{{asset "css/form.css"}}">
+<script type="module" src="{{asset "js/form.js"}}"></script>
+{{end}}
+
+{{define "main"}}
+<div class="page-header">
+  <div>
+    {{if .Edit}}
+    <h1>Edit <span class="golink">go/{{.Name}}</span></h1>
+    <p class="muted">Changes take effect as soon as you save.</p>
+    {{else}}
+    <h1>New link</h1>
+    <p class="muted">A go link sends <span class="golink">go/&lt;pattern&gt;</span> to a destination URL.</p>
+    {{end}}
+  </div>
+  {{if .Edit}}<a class="button button-quiet" href="{{.LinkURL}}">View link</a>{{end}}
+</div>
+
+{{if .ForeignPrefill}}
+<div class="notice notice-warning" id="foreign-prefill">
+  <strong class="notice-title">Warning: filled in by another site</strong>
+  <p>A page of another site opened this form with {{if eq (len .ForeignHosts) 1}}a route{{else}}routes{{end}} already filled in. Check every pattern and destination before you save: nothing is saved until you do.</p>
+  <ul class="foreign-hosts">
+    {{range .ForeignHosts}}<li>{{if .}}Opens a page on <bdi class="url">{{.}}</bdi>{{else}}A destination that can't be read yet{{end}}</li>{{end}}
+  </ul>
+</div>
+{{end}}
+{{if .IgnoredPrefill}}
+<div class="notice notice-info" id="ignored-prefill">
+  <strong class="notice-title">Routes from another site were left out</strong>
+  <p>A page of another site asked to add routes to <span class="golink">go/{{.Name}}</span>. They were not added. If you want a new route, add it here yourself.</p>
+</div>
+{{end}}
+
+<noscript>
+  <div class="notice notice-warning">
+    <strong class="notice-title">Warning: this form needs JavaScript</strong>
+    <p>{{if .Edit}}Editing{{else}}Creating{{end}} a link checks what you type as you type it, which needs JavaScript. Turn it on for this site and reload the page.{{if .Edit}} Reading the link works without it: <a href="{{.LinkURL}}">go back to <span class="golink">go/{{.Name}}</span></a>.{{end}}</p>
+  </div>
+</noscript>
+
+<form id="link-form" class="link-form stack" hidden novalidate
+      data-mode="{{if .Edit}}edit{{else}}new{{end}}" data-initial="{{.Initial}}" data-max-routes="{{.MaxRoutes}}" aria-labelledby="form-heading">
+  <h2 id="form-heading" class="visually-hidden">{{if .Edit}}Edit go/{{.Name}}{{else}}New link{{end}}</h2>
+
+  <div id="form-alert" class="notice notice-error" role="alert" tabindex="-1" hidden></div>
+
+  <section class="card form-section" aria-labelledby="routes-title">
+    <div class="split">
+      <h2 id="routes-title" class="section-title">Routes</h2>
+      <p id="route-count" class="muted small"></p>
+    </div>
+    <p class="field-help">A route maps a pattern, what follows <span class="golink">go/</span>, to a destination. The pattern's first part is the link's name, and every route of a link starts with it. Write a variable in braces, such as <span class="pattern">reports/<span class="pattern-var">{month}</span></span>.</p>
+    <div id="name-status" class="name-status" role="status" aria-live="polite"></div>
+    <ul id="link-problems" class="field-messages" aria-live="polite"></ul>
+    <ol id="routes" class="route-list"></ol>
+    <p><button type="button" id="add-route" class="button">Add a route</button></p>
+  </section>
+
+  <section class="card form-section" aria-labelledby="description-title">
+    <h2 id="description-title" class="section-title">Description</h2>
+    <div class="field">
+      <label for="description">What is this link for? <span class="muted">(optional)</span></label>
+      <textarea id="description" class="textarea" rows="2" aria-describedby="description-help"></textarea>
+      <p id="description-help" class="field-help">Shown in search results and on the link's page, so others can tell what it opens.</p>
+    </div>
+  </section>
+
+  <section class="card form-section" aria-labelledby="preview-title">
+    <h2 id="preview-title" class="section-title">Try it</h2>
+    <p class="field-help">Fill in values to see where the link leads before you save it. Nothing is saved here.</p>
+    <div id="preview" class="form-preview"></div>
+  </section>
+
+  <div class="form-actions">
+    <button type="submit" id="save" class="button button-primary">{{if .Edit}}Save changes{{else}}Create link{{end}}</button>
+    <a class="button button-quiet" href="{{if .Edit}}{{.LinkURL}}{{else}}/-/{{end}}">Cancel</a>
+    <span id="save-status" class="muted small" role="status" aria-live="polite"></span>
+  </div>
+</form>
+
+{{/* The choices of every variable's type selector; the names are the link model's. */}}
+<template id="type-options">
+  {{range .Types}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
+</template>
+{{end}}

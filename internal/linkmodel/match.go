@@ -186,6 +186,33 @@ func Accepts(p Pattern, t Template, variable, value string) (accepted, declared 
 	return valueFits(seg.Type, t.InPath(variable), value) == "", true
 }
 
+// CheckValue is Accepts with the reason a refused value would get from a
+// saved route: the same sentence a miss page shows for that variable, in
+// the words of meta (the route's notes on its variables, which may be nil).
+// reason is the zero Reason when the value is accepted or the variable is
+// not declared. RouteID and Pattern of the reason are not set.
+//
+// It lets a form or a launcher judge one value as it is typed, before the
+// other values of the go link are known (VAR-5).
+func CheckValue(p Pattern, t Template, meta []VariableMeta, variable, value string) (reason Reason, accepted, declared bool) {
+	seg, declared := p.variable(variable)
+	if !declared {
+		return Reason{}, false, false
+	}
+	code := valueFits(seg.Type, t.InPath(variable), value)
+	if code == "" {
+		return Reason{}, true, true
+	}
+	var note VariableMeta
+	for _, m := range meta {
+		if m.Name == variable {
+			note = m
+			break
+		}
+	}
+	return valueReason(seg, note, value, code), false, true
+}
+
 // valueFits returns "" when a variable of type typ accepts value, and
 // otherwise the reason code. dotsRefused says that the variable is used in
 // the destination's path.
@@ -320,38 +347,47 @@ func (c CompiledLink) reasons(segments []string, found []mismatch) []Reason {
 				quoteForMessage(segments[at]), seg.Literal)
 		default:
 			seg := r.pattern.segments[at]
-			meta := variableMetaOf(c.Link.Routes[i], seg.Variable)
-			reason.Variable, reason.Value, reason.Accepts = seg.Variable, segments[at], seg.Type.Describe()
-			// Who the variable is, in the owner's words when there are any:
-			// "month (Month, 1 to 12)". The description exists to explain the
-			// variable to people (MISS-2).
-			who := seg.Variable
-			if meta.Description != "" {
-				who += " (" + meta.Description + ")"
+			code := ReasonValueRejected
+			if found[i].notAllowed {
+				code = ReasonValueNotAllowed
 			}
-			switch {
-			case found[i].notAllowed && (segments[at] == "." || segments[at] == ".."):
-				reason.Code = ReasonValueNotAllowed
-				reason.Message = fmt.Sprintf(
-					"%s can't be %q, because its value becomes part of the destination's path.",
-					who, segments[at])
-			case found[i].notAllowed:
-				reason.Code = ReasonValueNotAllowed
-				reason.Message = fmt.Sprintf(
-					"%s can't be %s: a value that becomes part of the destination's path can't have \".\" or \"..\" between slashes.",
-					who, quoteForMessage(segments[at]))
-			default:
-				reason.Code = ReasonValueRejected
-				reason.Message = fmt.Sprintf("%s doesn't accept %s. It accepts %s.",
-					who, quoteForMessage(segments[at]), seg.Type.Describe())
-			}
-			if meta.Example != "" {
-				reason.Message += " For example: " + quoteForMessage(meta.Example) + "."
-			}
+			reason = valueReason(seg, variableMetaOf(c.Link.Routes[i], seg.Variable), segments[at], code)
+			reason.RouteID, reason.Pattern = c.Link.Routes[i].ID, c.Link.Routes[i].Pattern
 		}
 		reasons[i] = reason
 	}
 	return reasons
+}
+
+// valueReason explains why the variable of seg refused value; code is
+// ReasonValueRejected or ReasonValueNotAllowed (valueFits). The sentence
+// names the variable in the owner's words when there are any, "month
+// (Month, 1 to 12)", because the description exists to explain the variable
+// to people (MISS-2), and ends with the owner's example. RouteID and Pattern
+// are left for the caller.
+func valueReason(seg Segment, meta VariableMeta, value, code string) Reason {
+	reason := Reason{Code: code, Variable: seg.Variable, Value: value, Accepts: seg.Type.Describe()}
+	who := seg.Variable
+	if meta.Description != "" {
+		who += " (" + meta.Description + ")"
+	}
+	switch {
+	case code == ReasonValueNotAllowed && (value == "." || value == ".."):
+		reason.Message = fmt.Sprintf(
+			"%s can't be %q, because its value becomes part of the destination's path.",
+			who, value)
+	case code == ReasonValueNotAllowed:
+		reason.Message = fmt.Sprintf(
+			"%s can't be %s: a value that becomes part of the destination's path can't have \".\" or \"..\" between slashes.",
+			who, quoteForMessage(value))
+	default:
+		reason.Message = fmt.Sprintf("%s doesn't accept %s. It accepts %s.",
+			who, quoteForMessage(value), seg.Type.Describe())
+	}
+	if meta.Example != "" {
+		reason.Message += " For example: " + quoteForMessage(meta.Example) + "."
+	}
+	return reason
 }
 
 // variableMetaOf returns what the route stores about the named variable; the

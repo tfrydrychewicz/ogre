@@ -90,6 +90,31 @@ func TestValidateTokensAndSamples(t *testing.T) {
 			t.Errorf("route %d samples = %v, want %v", i, res.Routes[i].Samples, want)
 		}
 	}
+	// Each refused sample has the sentence a miss page would show for it,
+	// so a launcher can say it beside the field (VAR-5); accepted ones have
+	// none.
+	wantReasons := []map[string]map[string]string{
+		{
+			"month": {
+				"13": `month doesn't accept "13". It accepts text matching ^(0?[1-9]|1[0-2])$.`,
+				"":   `month doesn't accept "". It accepts text matching ^(0?[1-9]|1[0-2])$.`,
+			},
+			"day": {
+				"x":   `day doesn't accept "x". It accepts a whole number.`,
+				"1.5": `day doesn't accept "1.5". It accepts a whole number.`,
+			},
+		},
+		{"team": {
+			"..": `team can't be "..", because its value becomes part of the destination's path.`,
+			".":  `team can't be ".", because its value becomes part of the destination's path.`,
+		}},
+		nil,
+	}
+	for i, want := range wantReasons {
+		if !reflect.DeepEqual(res.Routes[i].SampleReasons, want) {
+			t.Errorf("route %d sample reasons = %q, want %q", i, res.Routes[i].SampleReasons, want)
+		}
+	}
 
 	// Validate is a pure check: no store call, nothing stored, no revision,
 	// nothing new resolves.

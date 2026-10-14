@@ -1,0 +1,333 @@
+/*
+ * The create and edit form (templates/form.html, js/form.js).
+ *
+ * Only classes of this page are defined here; the shared ones (.field,
+ * .input, .button, .notice, .pattern-var ...) come from site.css unchanged.
+ */
+
+.link-form {
+  max-width: 52rem;
+}
+
+.form-section > :last-child {
+  margin-bottom: 0;
+}
+
+/* ------------------------------------------------------------- messages */
+
+/* The problems beside a field: a list, each item says its kind in words. */
+.field-messages {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.field-messages:empty {
+  display: none;
+}
+
+.field-messages > li + li {
+  margin-top: var(--space-1);
+}
+
+.message-kind {
+  font-weight: 650;
+}
+
+.route-messages {
+  margin-bottom: var(--space-4);
+}
+
+/* ------------------------------------------------------------ the name */
+
+.name-status:empty {
+  display: none;
+}
+
+.name-status {
+  margin-bottom: var(--space-4);
+}
+
+.name-free {
+  color: var(--color-success);
+  font-weight: 550;
+}
+
+.name-rename {
+  color: var(--color-muted);
+}
+
+.name-taken p {
+  margin-bottom: var(--space-2);
+}
+
+.name-taken > :last-child {
+  margin-bottom: 0;
+}
+
+/* --------------------------------------------------------------- routes */
+
+.route-list {
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  list-style: none;
+}
+
+.route {
+  padding: var(--space-4) 0 var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.route:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.route-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.route-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.route-tools {
+  gap: var(--space-1);
+}
+
+.route-remove {
+  color: var(--color-danger);
+}
+
+/* ------------------------------------------------- the pattern's mirror */
+
+/*
+ * The pattern field is an input with transparent text over a mirror that
+ * draws the same text in token colors (VAR-2; see js/form/pattern.js). Both
+ * carry .input .input-mono, so font, size, padding and border are the same;
+ * nothing below may change the width of a character (no bold, no padding
+ * on a token), or the two would drift apart.
+ */
+.pattern-box {
+  display: flex;
+  min-width: 0;
+}
+
+.pattern-prefix {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-control);
+  border-right: 0;
+  border-radius: var(--radius) 0 0 var(--radius);
+  background: var(--color-surface-2);
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+}
+
+.pattern-editor {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pattern-editor .input {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.pattern-mirror {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  white-space: pre;
+  pointer-events: none;
+  user-select: none;
+  color: var(--color-text);
+}
+
+.pattern-input {
+  position: relative;
+  background: transparent;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--color-text);
+}
+
+.pattern-input::placeholder {
+  color: var(--color-muted);
+  -webkit-text-fill-color: var(--color-muted);
+}
+
+.pattern-input::selection {
+  background: rgb(47 85 212 / 0.3);
+}
+
+/* An invalid input has a 2px border (site.css); the mirror follows, so the
+   text inside both moves by the same pixel. */
+.pattern-editor.is-invalid .pattern-mirror {
+  border-color: transparent;
+  border-width: 2px;
+}
+
+.tok-var {
+  border-radius: var(--radius-small);
+  background: var(--color-accent-soft);
+  color: var(--color-link);
+}
+
+.tok-other {
+  color: var(--color-muted);
+}
+
+.tok-error {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  text-decoration: underline wavy var(--color-danger);
+  text-decoration-skip-ink: none;
+  text-underline-offset: 0.2em;
+}
+
+/* An error at a point (an empty range): a bar between two characters. */
+.pattern-mark {
+  position: relative;
+}
+
+.pattern-mark::after {
+  content: "";
+  position: absolute;
+  top: -0.1em;
+  bottom: -0.2em;
+  left: -1px;
+  width: 2px;
+  background: var(--color-danger);
+}
+
+@media (forced-colors: active) {
+  .pattern-input {
+    color: CanvasText;
+    -webkit-text-fill-color: CanvasText;
+  }
+
+  .pattern-mirror {
+    visibility: hidden;
+  }
+}
+
+/* ------------------------------------------------------------ variables */
+
+.variables {
+  margin-top: var(--space-2);
+}
+
+.variables-title {
+  margin-bottom: var(--space-1);
+  font-size: 0.9375rem;
+}
+
+.variable-list > * + * {
+  margin-top: var(--space-3);
+}
+
+.variable {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-bg);
+}
+
+.variable-name {
+  margin-bottom: var(--space-2);
+  font-family: var(--font-mono);
+}
+
+.variable-grid {
+  display: grid;
+  gap: 0 var(--space-4);
+}
+
+@media (min-width: 40rem) {
+  .variable-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.variable .field {
+  margin-bottom: var(--space-3);
+}
+
+.variable-regex {
+  display: grid;
+  gap: 0 var(--space-4);
+}
+
+@media (min-width: 40rem) {
+  .variable-regex {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+.variable-accepts:empty {
+  display: none;
+}
+
+.sample-input {
+  min-height: 3.5rem;
+}
+
+.sample-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sample-results:empty {
+  display: none;
+}
+
+/* Plain text flow, not flex: as flex items in a narrow column the verdict
+   and the value were squeezed to a character per line. */
+.sample {
+  max-width: 100%;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-small);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.sample-verdict {
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.sample-pass {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.sample-fail {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.sample-unknown {
+  background: var(--color-surface-2);
+  color: var(--color-muted);
+}
+
+/* -------------------------------------------------------------- preview */
+
+.form-preview-empty {
+  margin: 0;
+}

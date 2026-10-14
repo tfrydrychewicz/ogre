@@ -63,7 +63,7 @@ Q1, Q2, Q3, and Q6 are only needed by the cloud track and stay open until then. 
 | Database | SQLite through `modernc.org/sqlite`, a pure-Go driver | Nothing to install, no C compiler, cross-compiles. The store sits behind an interface, so Postgres can be added in C2 if Q1 requires it |
 | Schema changes | Numbered SQL files embedded in the binary, applied at startup | DEP-6, with no external tool |
 | HTML | `html/template`, rendered on the server | Automatic contextual escaping (NFR-11); miss pages work without JavaScript |
-| Browser code | Plain JavaScript modules written as custom elements, for both the web UI and the extension. No framework, no bundler | No build step: `go run` serves the UI, and Chrome loads `extension/` as it is (DEP-1, DEP-2) |
+| Browser code | Plain JavaScript modules, for both the web UI and the extension; in the web UI they add behavior to pages the server renders. No custom elements, no framework, no bundler | No build step: `go run` serves the UI, and Chrome loads `extension/` as it is (DEP-1, DEP-2) |
 | Types in JavaScript | JSDoc annotations checked by the TypeScript compiler (`tsc --noEmit`) | Type safety without compiling anything |
 | Tests | Go's `testing` package, including fuzzing and benchmarks; `node --test` for extension logic; Playwright for end-to-end tests with the extension loaded | Section 4 |
 | Logging | `log/slog` | Structured logs from the standard library |
@@ -104,8 +104,8 @@ This is the layout at the local-release gate. At L1 these parts do not exist yet
 │   ├── index/            In-memory snapshot of compiled links; search
 │   ├── app/              Use cases: resolve, validate, create, update, delete, search,
 │   │                     export, import
-│   ├── httpd/            Listeners, request guards, routing, resolver, JSON API
-│   ├── web/              Page handlers, templates/, static/ (CSS and JavaScript), embedded
+│   ├── httpd/            Listeners, request guards, routing, resolver, JSON API, page handlers
+│   ├── web/              Rendering, templates/, static/ (CSS and JavaScript), embedded
 │   ├── config/           Flags, environment variables, data-directory rules
 │   └── osservice/        launchd and systemd integration
 ├── extension/            Manifest V3 extension, loadable unpacked as it is
@@ -125,7 +125,7 @@ Q8 is closed, so no rename is planned. For the record, the name lives in these p
 - the `OGRE_` environment prefix;
 - the `product` field of the `meta` endpoint, which the server itself and the end-to-end harness check to recognise a running server;
 - what the command prints: its help text, the `ogre:` error prefix, the start and stop log lines, and the messages that name the program (such as `another ogre` and `start ogre with --allow-host`);
-- the placeholder page;
+- the web UI's page titles, header, and footer, the setup page, and the `ogre.` prefix of the keys the browser code keeps in `sessionStorage`;
 - the `name` and `description` in `package.json`, and the `name` in `package-lock.json`;
 - the `ogre-e2e-` prefix of the tests' temporary directories;
 - `extension/manifest.json` and the `[ogre]` log prefix of `extension/background.js`;
@@ -148,7 +148,7 @@ The outermost handler decides in this order:
 
 1. **Host check** (section 3.8). An unlisted `Host` gets `403`.
 2. **`/`** redirects to `/-/` (RES-5).
-3. **`/-/…`** goes to the web UI and API, routed by the standard `ServeMux`.
+3. **`/-/…`** goes to the web UI and API, routed by the standard `ServeMux`. A page of another site cannot load these as an image, a frame, or a fetch (section 3.8).
 4. **Reserved paths** — `favicon.ico`, `robots.txt`, `sitemap.xml`, `apple-touch-icon*.png`, and anything under `.well-known/` — are answered directly. They are never treated as go links, and the names are rejected when a link is saved.
 5. **Everything else** is a go link, resolved from the raw, still-encoded path (`r.URL.EscapedPath()`).
 
@@ -300,6 +300,15 @@ Validation, which drives the whole create and edit form:
     "samples": { "month": { "10": true, "x": false } } } ] }
 ```
 
+The create and edit form and the launcher ask for more through optional fields, added in L3. A request without them gets exactly the answer above.
+
+- `"describeVariables": true` adds each route's `variables`: `name`, `type`, `accepts`, `expression`, and the `start` and `end` of the variable's span, braces included, which the variables table rewrites.
+- `"explainSamples": true` adds each route's `sampleReasons`: for every refused sample, the sentence a miss page would show.
+- A route's `expressions`, one regular expression per variable name, is checked on its own and answered in that route's `expressions` as `{ "valid", "code", "message" }`.
+- `"preview": { "route": 0, "path": "reports/10/13" }` adds `preview`: what the draft, saved as it is, would do with that request. A `hit` carries `route`, `destination`, and `values`; a `miss_known` carries `reasons`, each with the index of its route; `bad_request` and `invalid` carry a `message`. Routes with errors take no part, and nothing is read from the store.
+
+Search, `GET /links?q=`, answers `{ "links": [ … ] }`: links as above, best first, each with a `rank`, and each route with the `tokens` of its pattern so results can highlight variables. The ranks, best first, are `exact`, `prefix`, `misspelled`, `name`, `description`, `destination`, and `owner`. All but the first three mean that every word of the query occurs somewhere in the link, ranked by the best field one occurs in; `name` is a word found inside a name, as `status` in `platform-status`. A single word pasted as `go/reports/10/13` is searched as the name `reports`. `limit` defaults to 20 and is at most 100. Without `q` the endpoint lists every link, as in L2, and does not apply `limit`.
+
 The resolver's decision:
 
 ```json
@@ -356,15 +365,16 @@ Export files, frozen at the gate because they are the migration path to a deploy
 | Route editor | Pattern field with highlighted tokens and an error marker; destination field; messages beside the field they concern | `POST /links/validate` |
 | Variables table | Type selector and restriction editor per variable; rewrites the variable's span in the pattern | Offsets from the validate response |
 | Regex tester | Sample values, marked pass or fail by the server's engine | `POST /links/validate` |
-| Launcher | One field per variable; shows the resulting go link and final URL, or the reason; Open button | `GET /resolve` |
+| Launcher | One field per variable; shows the resulting go link and final URL, or the reason; Open button | `GET /resolve`; `POST /links/validate` for each value on its own and for the form's preview |
 
 Rules for all browser code:
 
-- No inline script or style; the content security policy forbids both.
-- Untrusted text is inserted with `textContent` or DOM methods, never `innerHTML`. `make check` fails if `innerHTML` or `insertAdjacentHTML` appears in `internal/web/static` or `extension/`.
+- No inline script or style; the content security policy forbids both. Every response carries `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'` (NFR-11). The last two directives allow no Trusted Types policy, so a browser that knows them (Chromium) refuses every sink that turns a string into markup.
+- Untrusted text is inserted with `textContent` or DOM methods, never as markup. `make check` (`dom-guard`) fails if any of these appears in `internal/web/static` or `extension/`: `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`, `srcdoc`, `DOMParser`, `parseFromString`, `createContextualFragment`, `setHTMLUnsafe`, `parseHTMLUnsafe`.
 - Calls made while typing are debounced by 200 ms, cancel the previous call, and ignore answers that arrive out of order.
 - Reading pages — home, link page, miss page — are rendered by the server and work without JavaScript. Creating and editing require it.
-- Static files are served under a prefix derived from a hash of their content, with a long cache lifetime. `--dev` serves templates and static files from disk, so editing them needs no restart.
+- Static files are served under `/-/static/<hash>/`, with a long cache lifetime. One hash covers all of them, not one per file, because the modules import each other by relative path. `--dev` serves templates and static files from the source checkout, read on every request, so editing them needs no restart.
+- Pages send `Referrer-Policy: same-origin`. A go link's address carries values, and a redirect to another site already gets no `Referer` under this policy. `no-referrer` would leak nothing more, but a browser then sends `Origin: null` on the Directory's own writes, which the write guard of section 3.8 refuses. Miss pages and the bad-request page make no writes; they send `no-referrer`, and `X-Robots-Tag: noindex`.
 
 Pattern highlighting (VAR-2) uses a monospace input with transparent text over a mirror element that renders the tokens the server returned. If that proves unreliable in a browser listed in NFR-20, the fallback is to render the tokens directly beneath the field with the error marker under the offending character; both satisfy the requirement.
 
@@ -416,7 +426,7 @@ A local Directory has no sign-in, yet any web page open in the user's browser ca
 | DNS rebinding: a hostile domain that resolves to `127.0.0.1` | Serve a request only when its `Host` is `localhost`, `127.0.0.1`, or `[::1]` with the configured port, or a host added with `--allow-host`. This guards against browsers, not against other machines; the loopback listener does that |
 | A web page writing across sites | A write must carry `Content-Type: application/json`, which a cross-site form cannot send without a preflight that is never approved. An `Origin` header, when present, must be the Directory's own; `Sec-Fetch-Site`, when present, must be `same-origin` or `none`. Each of these headers may appear at most once, and an empty `Origin` counts as a mismatch |
 | A web page reading across sites | The Directory never sends CORS headers |
-| A web page probing which go links exist, by loading one as an image, a frame, or a fetch | The resolver answers a fixed `403`, before any lookup, when `Sec-Fetch-Site` is present and is neither `same-origin` nor `none`, unless the request is a top-level navigation (`Sec-Fetch-Mode: navigate` with `Sec-Fetch-Dest: document`). Clicked links and clients without these headers, such as `curl`, are unaffected. Added in L1 after review |
+| A web page probing which go links exist, by loading one as an image, a frame, or a fetch | The resolver answers a fixed `403`, before any lookup, when `Sec-Fetch-Site` is present and is neither `same-origin` nor `none`, unless the request is a top-level navigation (`Sec-Fetch-Mode: navigate` with `Sec-Fetch-Dest: document`). Clicked links and clients without these headers, such as `curl`, are unaffected. Added in L1 after review. Reads under `/-/` get the same refusal, pages from L3 on: whether `/-/links/<name>` is a page or a `404` tells which links exist. The health check and static files are exempt |
 | Script injection through a name, description, or path | Escaping templates, the `innerHTML` ban, and the content security policy (NFR-11) |
 
 `GET` requests never change state, apart from counting a use.
@@ -431,7 +441,7 @@ The write guards apply under `/-/` only, never to the resolver. In the L0 spike 
 | `--db` | `OGRE_DB` | `ogre.db` in the data directory | Database file |
 | `--allow-host` | `OGRE_ALLOW_HOSTS` | none | Extra `Host` values to accept |
 | `--log-level` | `OGRE_LOG_LEVEL` | `info` | |
-| `--dev` | — | off | Serve templates and static files from disk (no effect until L3.1) |
+| `--dev` | — | off | Serve templates and static files from the source checkout, read on every request. Refuses to start when no checkout is found |
 | `--allow-unauthenticated-network` | — | off | Allow listening beyond loopback although there is no sign-in (section 3.8) |
 
 The data directory is `~/Library/Application Support/ogre` on macOS, `$XDG_DATA_HOME/ogre` (or `~/.local/share/ogre`) on Linux, and `%LocalAppData%\ogre` on Windows. It holds `ogre.db`, `backups/`, and `logs/`. The database lives there and not in the repository checkout, so pulling or deleting the source never touches a user's links.
@@ -456,8 +466,9 @@ The data directory is `~/Library/Application Support/ogre` on macOS, `$XDG_DATA_
 | Fuzz | The parser never panics; canonical text re-parses to the same pattern; no value can change a destination's scheme or host | Go fuzzing | 10 seconds each in `make check`; 5 minutes each before a tag |
 | HTTP | Status codes, headers, request guards, escaping, API shapes | `net/http/httptest` | `make check` |
 | Extension logic | URL validation and rule building | `node --test` | `make check` |
+| Web UI modules | The debounce, cancelling, and ordering of calls made while typing; the URL check of `lib/dom.js` | `node --test` over `e2e/unit` | `make check` |
 | Type check | All browser and extension code | `tsc --noEmit` | `make check` |
-| End to end | The redirect through the real extension; PRD scenarios 1–8; the unreachable page | Playwright with its bundled Chromium | `make check` |
+| End to end | The redirect through the real extension; PRD scenarios 1–8; the unreachable page. A content security policy violation, console error, or uncaught error on a Directory page fails the test | Playwright with its bundled Chromium | `make check` |
 | Accessibility | No serious or critical issue on the main pages (NFR-21) | axe, run by Playwright | `make check` |
 | Performance | NFR-1, NFR-2, NFR-3, NFR-5 with 100,000 links | Go benchmarks and a load script | Before each tag |
 | Manual | Address-bar behavior, permission prompts, the service after a reboot | `docs/manual-tests.md` | Before each tag |
@@ -538,7 +549,7 @@ Each milestone lists what it **completes** (requirements fully met at its end) a
 - **L2.9 `Resolve`.** One function from a snapshot and a raw path to a decision: home, hit, unknown-name miss, known-name miss, or bad request.
 - **L2.10 Use cases and persistence.** Create, update, and delete with the full model. Optimistic concurrency on `links.version`. A revision snapshot on every change — history is captured from now on, though its screen arrives in L5. Snapshot swap after commit. Renaming changes the first segment of every route.
 - **L2.11 API.** `POST /links/validate`, `GET /resolve`, and full create, read, update, delete on `/links`, with the shapes of section 3.5. Creating a link whose name exists answers `409` with the existing link and whether the caller may edit it (DIR-4).
-- **L2.12 Resolver handler.** Renders the decision as `302`, `404` (a plain page until L3), or `400`. Request logs name the matched link, never the raw path (NFR-17).
+- **L2.12 Resolver handler.** Renders the decision as `302`, `404` (a plain page in L2, replaced by the miss page of L3.8), or `400`. Request logs name the matched link, never the raw path (NFR-17).
 - **L2.13 Robustness.** The fuzz targets of section 4. Benchmarks with 100,000 generated links for a hit, an unknown-name miss, and a known-name miss.
 
 **Done when** every P0 fixture passes through the Go API and through HTTP; each fuzz target runs clean for 5 minutes; and the benchmarks show a hit under 1 ms and an unknown-name miss under 50 ms in process, leaving ample room inside NFR-1 and NFR-2.
@@ -549,16 +560,26 @@ Each milestone lists what it **completes** (requirements fully met at its end) a
 
 **You can now** carry out PRD scenarios 1 to 7 at `http://localhost:4655`.
 
-**Completes:** DIR-1, DIR-2, DIR-3, DIR-4, DIR-6, DIR-7, VAR-2, VAR-3, VAR-4, VAR-5, SRCH-1, SRCH-2, SRCH-3, SRCH-4, MISS-1, MISS-2, MISS-3, RES-2, RES-5, API-1, NFR-11, NFR-20, NFR-21. **Starts:** DIR-5.
+**Status, 2026-10-14: done.** `make check` passes from a clean state. Besides the steps of L2, it now runs 9 unit tests of the web UI's modules, the wider DOM-sink scan of section 3.6, and 47 end-to-end tests in headless Chromium. Those drive PRD scenarios 1 to 7 through the pages with the extension loaded, scan every page with axe in light and dark, and check a width of 375 pixels, the reading pages without JavaScript, and search by keyboard alone. Negative controls show that the policy watch and the scan fail when they should. An independent verification confirmed both "done when" items and every requirement below. Three reviewers raised 38 findings, none high and 16 medium; 15 of the medium ones are fixed, and the sixteenth is the conflict between PRD scenarios 2 and 5 noted below. Only Chromium has been exercised, so L3 claims only part of NFR-20: phone width and Chromium are verified, and Firefox, Safari, and Edge wait for a manual or CI pass in L4 (section 9). Typing `go/…` in real Chrome with the extension is still the check left for a person. Decisions taken where the PRD was silent:
+
+- Scenario 5 is shown with the regex month of PRD 5.7. An `int` has no range until VAR-9 (L6.1), so the integer month of scenario 2 accepts `13`; the end-to-end test pins this.
+- Pages send `Referrer-Policy: same-origin`; miss pages and the bad-request page send `no-referrer` (section 3.6).
+- A page of another site cannot load a `/-/` page as an image, a frame, or a fetch (section 3.8).
+- Routes prefilled by another site are left out of the edit form and flagged on the create form (L3.6).
+- Search has a rank the PRD doesn't name, `name`, for a word found inside a name (section 3.5). A result without variables opens through the resolver (`/<name>`), so the server decides where it goes and can count the use in L5.
+- Every write goes through the API. The reading pages call the same use cases directly; the API has no lookup by name, owner filter, or sort, which those pages would need to be built on it. These wait in the backlog.
+- The gate's accessibility scan uses the WCAG 2.0 and 2.1 A and AA rules. A run that added the 2.2 AA rules was clean too, but they are not in the gate.
+
+**Completes:** DIR-1, DIR-2, DIR-3, DIR-4, DIR-6, DIR-7, VAR-2, VAR-3, VAR-4, VAR-5, SRCH-1, SRCH-2, SRCH-3, SRCH-4, MISS-1, MISS-2, MISS-3, RES-2, RES-5, API-1, NFR-11, NFR-21. **Starts:** DIR-5, NFR-20.
 
 - **L3.1 Foundation.** Layout template; stylesheet with color tokens for light and dark; static files under a content-hash prefix; `--dev` mode; the content security policy. Focus styles, labels, and landmarks from the first page on.
-- **L3.2 Search.** The ranking of SRCH-2, computed in the index: exact name, name prefix, misspelled name (the distance of L2.8), then substring matches in descriptions, destinations, and owners. Unit tests pin the order.
-- **L3.3 Home.** Search box focused on load. "Your links" and "Recently added" rendered by the server. The search component lists results with variables highlighted and opens links without variables directly.
+- **L3.2 Search.** The ranking of SRCH-2, computed in the index: exact name, name prefix, misspelled name (the distance of L2.8), then substring matches in names, descriptions, destinations, and owners. Unit tests pin the order.
+- **L3.3 Home.** Search box focused on load. "Your links" and "Recently added" rendered by the server. The search component lists results with variables highlighted and opens links without variables directly. Pages ask for one result more than they show, and say "showing the best N" only when more matched.
 - **L3.4 Link page.** Description, owner, routes with destinations, variables with types, buttons that copy `go/…` and the full URL, the launcher, and Edit and Delete.
 - **L3.5 Launcher.** One field per variable of the chosen route. Each debounced keystroke asks `GET /resolve` and shows the resulting go link and final URL, or the server's reason. Open is enabled only on a hit.
-- **L3.6 Create and edit form.** Route rows with add, remove, move up, and move down; a description. The validate endpoint drives the rest: token highlighting, an error marker at the reported character, messages beside the field concerned, name availability, and conflicts that link to the existing link. The variables table shows a type selector per variable and, for a regex, an expression field with the sample tester. Changing a row rewrites that variable in the pattern; editing the pattern refreshes the table. The launcher serves as the live preview. The form opens prefilled from `?pattern=` and `?destination=`. When the name belongs to a link the user may edit, it offers to add the route there. It reports a version conflict when the link changed in another tab.
-- **L3.7 Delete.** A confirmation that names the link. From L5.6 it also shows when the link was last used.
-- **L3.8 Miss page.** Rendered by the server from the decision, at the missed URL, with status `404`, working without JavaScript. For an unknown name: up to five suggestions with description and destination, a "Create `go/<typed path>`" button, and a search box holding the name. For a known name: the link's description and each route with the reason it didn't fit.
+- **L3.6 Create and edit form.** Route rows with add, remove, move up, and move down; a description. The validate endpoint drives the rest: token highlighting, an error marker at the reported character, messages beside the field concerned, name availability, and conflicts that link to the existing link. The variables table shows a type selector per variable and, for a regex, an expression field with the sample tester. Changing a row rewrites that variable in the pattern; editing the pattern refreshes the table. The launcher serves as the live preview. The form opens prefilled from `?pattern=` and `?destination=`. When the name belongs to a link the user may edit, it offers to add the route there. It reports a version conflict when the link changed in another tab. Editing the first route's name renames every route that starts with the same name. The type labels come from `linkmodel.TypeChoices`, where L6 adds its types. A prefill counts as another site's when `Sec-Fetch-Site` is present and is neither `same-origin` nor `none`. The edit form leaves such routes out and says so, because a route added to an existing link takes the requests it answers more specifically than the link's own routes (PRD 5.5). The create form keeps them, since that is how DIR-7 works, but warns and names each destination's host.
+- **L3.7 Delete.** A confirmation that names the link. A user who may not delete the link gets the page with the reason and no button, as a `403`, like the edit form. From L5.6 it also shows when the link was last used.
+- **L3.8 Miss page.** Rendered by the server from the decision, at the missed URL, with status `404`, working without JavaScript. For an unknown name: up to five suggestions with description and destination. For a known name: the link's description and each route with the reason it didn't fit. Both kinds offer "Create `go/<typed path>`" and a search box holding the name; on a known name the create form finds the name taken and offers to add the route (DIR-4). An address that cannot be a link at all is answered without repeating it.
 - **L3.9 Setup page.** How to load the extension, how to check that it works, what to do when Chrome searches instead of navigating, that in Incognito, where the extension is not allowed by default, a typed go link ended on Chrome's error page (L0, check 16), and how to allow the extension there (that this makes go links work in Incognito was not tried in L0), and the extension-free alternative: a browser search shortcut pointing at `http://localhost:4655/%s`.
 - **L3.10 Reserved paths** of section 3.3, answered directly and never shown as misses.
 - **L3.11 Tests.** Page tests with hostile names, descriptions, and paths to prove escaping. Playwright flows for scenarios 1–7. The accessibility scan on home, form, link page, and miss page. A pass at a width of 375 pixels on the miss and link pages.
@@ -569,16 +590,16 @@ Each milestone lists what it **completes** (requirements fully met at its end) a
 
 **Goal.** Finish the extension's P0 pages, then prove the whole P0 set on a clean machine. This closes the PRD's M1.
 
-**Completes:** EXT-2, EXT-3, EXT-4, DEP-2, NFR-1, NFR-2, NFR-3, NFR-5, NFR-18. **Starts:** NFR-19.
+**Completes:** EXT-2, EXT-3, EXT-4, DEP-2, NFR-1, NFR-2, NFR-3, NFR-5, NFR-18, NFR-20. **Starts:** NFR-19.
 
 - **L4.1 Settings logic.** Validate a Directory URL — `http` or `https`, no credentials, no path — and reduce it to its origin; build the rule; store the URL in `chrome.storage.local`. Unit-tested with `node --test`.
 - **L4.2 Settings page.** A URL field defaulting to `http://localhost:4655`. "Test connection" fetches the `meta` endpoint and checks the product identifier and API version. Save requests host access for the new origin, replaces the redirect rule in a single call, and releases access to the old origin. A malformed URL cannot be saved; a well-formed one that doesn't answer can, after a warning.
 - **L4.3 First-run page.** Opens on install. It shows whether the Directory answers, and how to start it if not. It asks the user to type `go/` and press Enter, and confirms by itself when it sees the navigation (check 13 of Appendix B holds: on Chrome stable the extension saw typed go navigations). Then it has the user try a link without a trailing slash and explains the fallback. Two findings of L0 shape this page. It asks for `go/` only once the Directory answers: in headless Chromium, a visit to `http://go/` made with the "typed" transition while the Directory was down left no `go` entry in history, and `chrome://omnibox` still reported a search for `go/foo` (check 3, proxy evidence; not repeated by hand). It accepts `https://go/` as well as `http://go/` as the navigation it waits for: in headless Chromium with "Always use secure connections" at its strict level, the address was rewritten to `https://go/` before the extension saw it (check 6). By hand on Chrome stable the strict level was only shown to reach the Directory; the scheme the extension saw there was not recorded.
 - **L4.4 Permission audit.** The manifest holds exactly the permissions of section 3.7. `extension/README.md` states the purpose of each. No content scripts, no remotely loaded code, no telemetry (NFR-18).
-- **L4.5 Extension tests.** Playwright: path, query, and percent-encoding survive the redirect; changing the Directory URL re-points the rule, checked with two test servers; the first-run page renders. The permission prompt for a custom URL belongs to the manual list. So does start-up behavior: with `--load-extension`, Chromium fires `onInstalled` (reason `install`) on every launch and never `onStartup` (L0 spike, check 14), so in these tests the first-run page opens in every session and the `onStartup` path is never exercised.
+- **L4.5 Extension tests.** Playwright: path, query, and percent-encoding survive the redirect; changing the Directory URL re-points the rule, checked with two test servers; the first-run page renders. The permission prompt for a custom URL belongs to the manual list. So does start-up behavior: with `--load-extension`, Chromium fires `onInstalled` (reason `install`) on every launch and never `onStartup` (L0 spike, check 14), so in these tests the first-run page opens in every session and the `onStartup` path is never exercised. Check which `Sec-Fetch-Site` the Directory receives when the extension opens or redirects a tab to it: the forms treat a prefill as another site's unless it is `same-origin` or `none` (L3.6).
 - **L4.6 README.** Prerequisites, the one command, loading the extension, the first link, troubleshooting. Timed on a clean macOS user account by someone new to the project: five minutes or less.
 - **L4.7 Performance run.** Generate 100,000 links. Over real HTTP, measure server time at the 95th percentile for hits, miss pages, and search, plus memory use and startup time. Record the results in `docs/perf.md` against NFR-1, NFR-2, NFR-3, and NFR-5.
-- **L4.8 Manual browser pass.** Write `docs/manual-tests.md` — the address-bar checks no automated test can perform — and run it on Chrome stable on macOS.
+- **L4.8 Manual browser pass.** Write `docs/manual-tests.md` — the address-bar checks no automated test can perform — and run it on Chrome stable on macOS. Run PRD scenarios 1 to 7 in the web UI on current Firefox, Safari, and Edge, by hand or with Playwright's Firefox and WebKit in CI (NFR-20).
 - **L4.9 Tag `v0.1.0`.**
 
 **Done when** every P0 requirement in Appendix A is met and the PRD's M1 criteria hold: the P0 fixtures pass, and the timed README run succeeds.
@@ -615,7 +636,7 @@ Each milestone lists what it **completes** (requirements fully met at its end) a
 
 The tasks are independent of each other and can be done in any order.
 
-- **L6.1 More types.** Integer ranges, `enum`, and `path` with `{+name}` expansion. `path` is allowed only as the last segment, ranks below a text variable, captures one or more segments, and rejects dot segments. The variables table gains bounds and value-list editors. New fixtures cover each type and the precedence between `path` and longer routes. The overlap warning of PRD 5.5 arrives with them.
+- **L6.1 More types.** Integer ranges, `enum`, and `path` with `{+name}` expansion. `path` is allowed only as the last segment, ranks below a text variable, captures one or more segments, and rejects dot segments. The variables table gains bounds and value-list editors. New fixtures cover each type and the precedence between `path` and longer routes. The overlap warning of PRD 5.5 arrives with them, including a warning when a draft route would take requests that another route of the same link answers today (L3 review). Before the new editors, the form's type syntax (`{name:int}`, `{name:regex(…)}`), the only pattern syntax browser code writes, should come from the server.
 - **L6.2 Query passthrough.** The request's parameters are appended unless the template already sets that key, and are placed before any fragment. Fixture 18 is switched on.
 - **L6.3 Preview.** A one-segment request that ends in `+`, whose stem is a link, opens that link's page.
 - **L6.4 Test box.** The validate endpoint accepts test paths and evaluates them against the unsaved draft. The form shows which route wins and why, or why the path misses.
@@ -703,11 +724,12 @@ Ordered after the team release, from what usage shows.
 |---|---|
 | SRCH-5, SRCH-6 | Tags and filters. Worth more once a Directory holds thousands of links |
 | INS-4 | Admin reports. The miss counts of C2.6 already feed "most missed" |
-| API-2, API-3 | Access tokens and an OpenAPI description |
+| API-2, API-3 | Access tokens and an OpenAPI description. With them, the reads the pages make through the use cases directly: a link by name, an owner filter, a sort, and `limit` on the plain list (L3) |
 | RES-9 | Serving hits while the database is down. Matters with Postgres |
 | DEP-11 | Several instances serving one database |
 | AUTH-8 | Sign-in through an identity header from a reverse proxy |
 | DIR-10, VAR-10, VAR-11, EXT-9, EXT-10, EXT-11, EXT-12, AUTH-9, AUTH-10, INS-5 | The PRD's P3 list |
+| — | Upkeep left by the L3 review: one source for the markup of a link in a list (now both a template and `search.js`), and JSDoc types for API answers (now `any`) |
 
 ## 9. Risks and open points
 
@@ -722,6 +744,11 @@ Ordered after the team release, from what usage shows.
 | Autostart differs between launchd and systemd | The service doesn't come up after login on some machine | A reboot test per OS on the manual list; `ogre doctor` |
 | L5 and L6 delay the cloud track | A later team release | L6 is the cut line |
 
+Open points from L3, to settle in L4:
+
+- NFR-20 beyond Chromium. Only Playwright's bundled Chromium runs in `make check`. An ad hoc run in Playwright's WebKit passed the core flows, but logged a content security policy `style-src` report each time a `<select>` was created (the type selector of the forms); `document.createElement('select')` alone does it. It looks like a WebKit quirk and the form still works; check it in Safari. Firefox and Edge were not run.
+- Whether Chrome's search shortcut turns `/` into `%2F` in `%s`. If it does, the shortcut on the setup page works only for links without variables.
+
 Open points that don't block L0–L4:
 
 - The CI workflow. The repository is on GitHub, so the workflow of section 4 can be wired now.
@@ -735,8 +762,8 @@ Each PRD requirement appears once, under the milestone that completes it.
 |---|---|
 | L1 | RES-3, RES-6, EXT-1, AUTH-1, DEP-1, DEP-3, DEP-6, NFR-4, NFR-7 |
 | L2 | VAR-1, RES-1, RES-4, RES-7, NFR-8, NFR-9, NFR-10, NFR-17, NFR-22 |
-| L3 | DIR-1, DIR-2, DIR-3, DIR-4, DIR-6, DIR-7, VAR-2, VAR-3, VAR-4, VAR-5, SRCH-1, SRCH-2, SRCH-3, SRCH-4, MISS-1, MISS-2, MISS-3, RES-2, RES-5, API-1, NFR-11, NFR-20, NFR-21 |
-| L4 | EXT-2, EXT-3, EXT-4, DEP-2, NFR-1, NFR-2, NFR-3, NFR-5, NFR-18 |
+| L3 | DIR-1, DIR-2, DIR-3, DIR-4, DIR-6, DIR-7, VAR-2, VAR-3, VAR-4, VAR-5, SRCH-1, SRCH-2, SRCH-3, SRCH-4, MISS-1, MISS-2, MISS-3, RES-2, RES-5, API-1, NFR-11, NFR-21 |
+| L4 | EXT-2, EXT-3, EXT-4, DEP-2, NFR-1, NFR-2, NFR-3, NFR-5, NFR-18, NFR-20 |
 | L5 | DIR-5, VAR-6, MISS-4, EXT-5, INS-1, INS-2, INS-3, DEP-10, NFR-16 |
 | L6 | DIR-8, DIR-9, VAR-7, VAR-8, VAR-9, SRCH-7, RES-8, RES-10, MISS-6, MISS-7, EXT-7, EXT-8 |
 | C1 | AUTH-2, AUTH-3, AUTH-4, AUTH-5, AUTH-6, AUTH-7, DEP-4, EXT-6, NFR-12, NFR-13, NFR-15 |
@@ -749,6 +776,7 @@ Notes on requirements that span milestones:
 - SRCH-2, SRCH-3, and VAR-3 are complete in L3 as far as their own wording goes. The parts they tie to later features arrive with those features: the usage tie-break and the most-used list in L5.6, the range and value-list editors in L6.1.
 - NFR-17 holds from L2 on. It is checked again whenever something new is recorded: usage in L5.6, misses in C2.6.
 - NFR-16's per-user last-active date arrives in C1.8; the rest is L5.6.
+- NFR-20 holds at phone width and in Chromium from L3; the other browsers are checked in L4.8.
 - DEP-7's health endpoint and structured logs exist from L1; readiness and metrics complete it in C2.2.
 - DEP-8's backups and export exist from L5; the runbook completes it in C2.5.
 

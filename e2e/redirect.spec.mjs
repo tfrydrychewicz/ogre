@@ -247,12 +247,13 @@ test("a page of another site cannot tell which go links exist by embedding them"
   expect(fixture.requestsFor(DESTINATION_PATH)).toHaveLength(before.destination);
 });
 
-test("the Directory's page has no serious accessibility issue", async () => {
-  // NFR-21, on the one page there is so far. This is here to prove the check
-  // runs in the harness before L3 adds the real pages.
-  await open(`${DIRECTORY_URL}/-/`, async (page, response) => {
+test("the Directory's home page has no serious accessibility issue", async () => {
+  // NFR-21. Every page, in both color schemes, is scanned by ui.spec.mjs;
+  // this one is reached the way a user reaches it, through the extension.
+  await open("http://go/", async (page, response) => {
+    expect(page.url()).toBe(`${DIRECTORY_URL}/-/`);
     expect(response?.status()).toBe(200);
-    await expect(page.locator("h1")).toHaveText("Ogre is running");
+    await expect(page.locator("h1")).toHaveText("Find a go link");
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.passes.length).toBeGreaterThan(0); // axe really ran against the page
     const serious = results.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical");

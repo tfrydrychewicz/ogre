@@ -1,0 +1,12 @@
+{{/*
+  A 404, 403 or 500 inside "/-/", and any short message page. Data:
+  web.ErrorPage. Heading and Message never repeat the request.
+*/}}
+{{define "main"}}
+<div class="message-page">
+  {{if ge .Status 400}}<p class="message-status">Error {{.Status}}</p>{{end}}
+  <h1>{{.Heading}}</h1>
+  {{with .Message}}<p>{{.}}</p>{{end}}
+  <p class="cluster"><a class="button" href="/-/">Directory home</a> <a class="button button-quiet" href="/-/new">New link</a></p>
+</div>
+{{end}}

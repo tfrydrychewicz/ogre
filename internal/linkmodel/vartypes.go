@@ -57,6 +57,34 @@ const (
 	TypeRegex  = "regex"
 )
 
+// TypeChoice is a variable type as a form offers it: its name in a pattern
+// and what people call it.
+type TypeChoice struct {
+	Name, Label string
+}
+
+// TypeChoices are the types a form offers for a variable, in the order it
+// offers them, with the words every page uses for them: the create form's
+// type selector and the link page's table show the same label. A type added
+// here (L6) is offered and shown everywhere at once.
+var TypeChoices = []TypeChoice{
+	{TypeString, "Text"},
+	{TypeInt, "Whole number"},
+	{TypeNumber, "Number"},
+	{TypeRegex, "Regular expression"},
+}
+
+// TypeLabel is what people call the type with the given name (TypeChoices);
+// the name itself for a type that is not offered.
+func TypeLabel(name string) string {
+	for _, c := range TypeChoices {
+		if c.Name == name {
+			return c.Label
+		}
+	}
+	return name
+}
+
 // typeList is how messages tell a user which types exist.
 const typeList = "string, int, number and regex(…)"
 
@@ -190,6 +218,31 @@ type errRegex struct {
 }
 
 func (e *errRegex) Error() string { return e.message }
+
+// RegexProblem checks a regular expression on its own, as it is typed into
+// a field of its own (the form's variables table, VAR-3), by the rules a
+// regex variable of a pattern being saved follows. It returns the code and
+// sentence of the first problem, in the terms of the expression alone, or
+// two empty strings when regex(source) would be accepted.
+//
+// Inside a pattern, an expression that opens a "(" or a "[" and never closes
+// it hides where regex( ends, and the pattern can only say that the closing
+// parenthesis is missing. Asked on its own, the same expression gets RE2's
+// own complaint ("a character class is opened with [ and never closed with
+// ]"), which is what the author has to fix.
+func RegexProblem(source string) (code, message string) {
+	if _, bad := newRegexType(source, true); bad != nil {
+		return bad.code, bad.message
+	}
+	// RE2 accepts it; so would a pattern, unless it cannot tell where the
+	// expression ends. That is only possible with \Q and no \E: RE2 quotes
+	// to the end of the expression, a pattern to the end of the pattern.
+	if regexEnd(source+")", 0) != len(source) {
+		return CodePatternRegexUnbalanced,
+			"This expression can't be placed in a pattern as it is: end every \\Q with \\E."
+	}
+	return "", ""
+}
 
 // newRegexType compiles the expression of a regex(…) type.
 //

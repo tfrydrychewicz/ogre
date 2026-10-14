@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/tfrydrychewicz/ogre/internal/app"
-	"github.com/tfrydrychewicz/ogre/internal/web"
 )
 
 // A header value of "-" in these tables means "do not send the header".
@@ -156,10 +155,8 @@ func TestWriteGuardsCoverEveryInternalPath(t *testing.T) {
 	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
 		for _, target := range []string{"/-/", "/-/new", "/-/api/v1/links", "/-/api/v1/links/12", "/-/healthz"} {
 			t.Run(method+" "+target, func(t *testing.T) {
-				reached := false
-				ui := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { reached = true })
 				svc := &fakeService{}
-				h := newTestServer(svc, func(o *Options) { o.UI = ui }).Handler()
+				h := newTestServer(svc, nil).Handler()
 
 				crossSite := request{method: method, target: target, body: "{}", headers: map[string]string{
 					"Content-Type": "application/json", "Origin": "https://evil.example", "Sec-Fetch-Site": "cross-site",
@@ -168,8 +165,8 @@ func TestWriteGuardsCoverEveryInternalPath(t *testing.T) {
 					t.Errorf("cross-site status = %d, want 403", crossSite.Code)
 				}
 
-				if reached || svc.calls() != 0 {
-					t.Errorf("a refused write reached a handler")
+				if svc.calls() != 0 {
+					t.Errorf("a refused write reached the Service")
 				}
 				if method == http.MethodDelete {
 					// DELETE has no body and is not asked for a content type
@@ -184,8 +181,8 @@ func TestWriteGuardsCoverEveryInternalPath(t *testing.T) {
 					t.Errorf("form status = %d, want 415", form.Code)
 				}
 
-				if reached || svc.calls() != 0 {
-					t.Errorf("a refused write reached a handler")
+				if svc.calls() != 0 {
+					t.Errorf("a refused write reached the Service")
 				}
 			})
 		}
@@ -244,11 +241,11 @@ func TestCrossSiteReadsOfTheAPIAreRefused(t *testing.T) {
 func TestPreflightIsNeverApproved(t *testing.T) {
 	for _, target := range []string{
 		"/-/api/v1/links", "/-/api/v1/links/12", "/-/api/v1/links/validate", "/-/api/v1/resolve?path=roadmap",
-		"/-/api/v1/meta", "/-/healthz", "/-/", "/-/static/site.css", "/roadmap", "/",
+		"/-/api/v1/meta", "/-/healthz", "/-/", "/-/new", assetURL(t, "css/site.css"), "/roadmap", "/",
 	} {
 		t.Run(target, func(t *testing.T) {
 			svc := &fakeService{}
-			h := newTestServer(svc, func(o *Options) { o.UI = web.Handler(testVersion) }).Handler()
+			h := newTestServer(svc, nil).Handler()
 			rec := request{method: http.MethodOptions, target: target, headers: map[string]string{
 				"Origin":                         "https://other.example",
 				"Access-Control-Request-Method":  "POST",
@@ -279,14 +276,20 @@ func TestSecurityHeadersOnEveryResponse(t *testing.T) {
 		wantContentType string
 	}{
 		{"HTML page", request{target: "/-/"}, http.StatusOK, "text/html; charset=utf-8"},
-		{"stylesheet", request{target: "/-/static/site.css"}, http.StatusOK, "text/css; charset=utf-8"},
-		{"UI 404", request{target: "/-/nothing"}, http.StatusNotFound, "text/plain; charset=utf-8"},
+		{"stylesheet", request{target: assetURL(t, "css/site.css")}, http.StatusOK, "text/css; charset=utf-8"},
+		{"module", request{target: assetURL(t, "js/lib/api.js")}, http.StatusOK, "text/javascript; charset=utf-8"},
+		{"static 404", request{target: "/-/static/0000000000000000/css/site.css"}, http.StatusNotFound, "text/plain; charset=utf-8"},
+		{"UI 404", request{target: "/-/nothing"}, http.StatusNotFound, "text/html; charset=utf-8"},
+		{"UI 405", request{method: http.MethodPost, target: "/-/new", headers: map[string]string{"Content-Type": "application/json"}},
+			http.StatusMethodNotAllowed, "text/plain; charset=utf-8"},
 		{"JSON", request{target: "/-/api/v1/meta"}, http.StatusOK, "application/json"},
 		{"JSON error", request{target: "/-/api/v1/nothing"}, http.StatusNotFound, "application/json"},
 		{"health check", request{target: "/-/healthz"}, http.StatusOK, "text/plain; charset=utf-8"},
 		{"hit", request{target: "/roadmap"}, http.StatusFound, "text/plain; charset=utf-8"},
 		{"home redirect", request{target: "/"}, http.StatusFound, "text/plain; charset=utf-8"},
-		{"reserved path", request{target: "/favicon.ico"}, http.StatusNotFound, "text/plain; charset=utf-8"},
+		{"favicon", request{target: "/favicon.ico"}, http.StatusOK, "image/x-icon"},
+		{"robots.txt", request{target: "/robots.txt"}, http.StatusOK, "text/plain; charset=utf-8"},
+		{"reserved path", request{target: "/sitemap.xml"}, http.StatusNotFound, "text/plain; charset=utf-8"},
 		{"refused host", request{target: "/-/", host: "evil.example:4655"}, http.StatusForbidden, "text/plain; charset=utf-8"},
 		{"refused method", request{method: http.MethodPost, target: "/roadmap"}, http.StatusMethodNotAllowed, "text/plain; charset=utf-8"},
 		{"refused write", request{method: http.MethodPost, target: "/-/api/v1/links"}, http.StatusUnsupportedMediaType, "application/json"},
@@ -294,7 +297,7 @@ func TestSecurityHeadersOnEveryResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &fakeService{resolveFn: hit}
-			h := newTestServer(svc, func(o *Options) { o.UI = web.Handler(testVersion) }).Handler()
+			h := newTestServer(svc, nil).Handler()
 			rec := tt.req.send(h)
 
 			if rec.Code != tt.wantStatus {
@@ -310,13 +313,20 @@ func TestSecurityHeadersOnEveryResponse(t *testing.T) {
 			if got := hdr.Get("Referrer-Policy"); got != "same-origin" {
 				t.Errorf("Referrer-Policy = %q, want same-origin", got)
 			}
+			if got := hdr.Get("X-Frame-Options"); got != "DENY" {
+				t.Errorf("X-Frame-Options = %q, want DENY", got)
+			}
 			csp := hdr.Get("Content-Security-Policy")
-			for _, want := range []string{"default-src 'self'", "frame-ancestors 'none'"} {
+			for _, want := range []string{
+				"default-src 'none'", "script-src 'self'", "style-src 'self'", "img-src 'self' data:",
+				"connect-src 'self'", "form-action 'self'", "base-uri 'none'", "frame-ancestors 'none'",
+				"require-trusted-types-for 'script'", "trusted-types 'none'",
+			} {
 				if !strings.Contains(csp, want) {
 					t.Errorf("Content-Security-Policy %q lacks %q", csp, want)
 				}
 			}
-			for _, banned := range []string{"unsafe-inline", "unsafe-eval", "*", "data:", "http:", "https:"} {
+			for _, banned := range []string{"unsafe-inline", "unsafe-eval", "unsafe-hashes", "*", "http:", "https:", "blob:"} {
 				if strings.Contains(csp, banned) {
 					t.Errorf("Content-Security-Policy %q contains %q", csp, banned)
 				}
@@ -326,20 +336,5 @@ func TestSecurityHeadersOnEveryResponse(t *testing.T) {
 			}
 			assertNoCORS(t, hdr)
 		})
-	}
-}
-
-// The placeholder page must work under the policy the server sends with it.
-func TestPlaceholderPageObeysThePolicy(t *testing.T) {
-	h := newTestServer(&fakeService{}, func(o *Options) { o.UI = web.Handler(testVersion) }).Handler()
-	body := strings.ToLower(get(h, "/-/").Body.String())
-
-	if !strings.Contains(body, testVersion) {
-		t.Errorf("page does not show the version:\n%s", body)
-	}
-	for _, banned := range []string{"<script", "<style", "style=", "http://", "https://", "//cdn"} {
-		if strings.Contains(body, banned) {
-			t.Errorf("page contains %q, which the policy would block", banned)
-		}
 	}
 }

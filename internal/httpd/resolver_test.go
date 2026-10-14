@@ -73,8 +73,14 @@ func TestResolverResponses(t *testing.T) {
 				if got := resp.Header.Get("Cache-Control"); got != "no-store" {
 					t.Errorf("%s Cache-Control = %q, want no-store", method, got)
 				}
-				if got := resp.Header.Get("Content-Type"); got != "text/plain; charset=utf-8" {
-					t.Errorf("%s Content-Type = %q, want plain text", method, got)
+				// Misses and bad requests are pages (L3.8); redirects and
+				// errors stay plain text.
+				wantType := "text/plain; charset=utf-8"
+				if tt.wantStatus == http.StatusNotFound || tt.wantStatus == http.StatusBadRequest {
+					wantType = "text/html; charset=utf-8"
+				}
+				if got := resp.Header.Get("Content-Type"); got != wantType {
+					t.Errorf("%s Content-Type = %q, want %q", method, got, wantType)
 				}
 			}
 
@@ -164,23 +170,30 @@ func TestRootRedirectsToUI(t *testing.T) {
 	}
 }
 
+// Reserved paths (plan section 3.3) are answered by the server itself and
+// never reach the resolver. favicon.ico and robots.txt have an answer; the
+// rest, and anything below a reserved name, is a 404 no browser keeps.
 func TestReservedPathsAreNeverResolved(t *testing.T) {
-	paths := []string{
-		"/favicon.ico",
-		"/robots.txt",
-		"/sitemap.xml",
-		"/apple-touch-icon.png",
-		"/apple-touch-icon-precomposed.png",
-		"/apple-touch-icon-120x120.png",
-		"/.well-known/anything",
-		"/.well-known/acme-challenge/token",
-		"/.well-known",
-		"/FAVICON.ICO",
-		"/favicon.ico?v=2",
-		"/favicon.ico/extra",
-		"//favicon.ico",
+	tests := map[string]struct {
+		status      int
+		contentType string
+	}{
+		"/favicon.ico":                      {http.StatusOK, "image/x-icon"},
+		"/favicon.ico?v=2":                  {http.StatusOK, "image/x-icon"},
+		"/robots.txt":                       {http.StatusOK, "text/plain; charset=utf-8"},
+		"/sitemap.xml":                      {http.StatusNotFound, "text/plain; charset=utf-8"},
+		"/apple-touch-icon.png":             {http.StatusNotFound, "text/plain; charset=utf-8"},
+		"/apple-touch-icon-precomposed.png": {http.StatusNotFound, "text/plain; charset=utf-8"},
+		"/apple-touch-icon-120x120.png":     {http.StatusNotFound, "text/plain; charset=utf-8"},
+		"/.well-known/anything":             {http.StatusNotFound, "text/plain; charset=utf-8"},
+		"/.well-known/acme-challenge/token": {http.StatusNotFound, "text/plain; charset=utf-8"},
+		"/.well-known":                      {http.StatusNotFound, "text/plain; charset=utf-8"},
+		"/FAVICON.ICO":                      {http.StatusNotFound, "text/plain; charset=utf-8"},
+		"/favicon.ico/extra":                {http.StatusNotFound, "text/plain; charset=utf-8"},
+		"//favicon.ico":                     {http.StatusNotFound, "text/plain; charset=utf-8"},
+		"/robots.txt/x":                     {http.StatusNotFound, "text/plain; charset=utf-8"},
 	}
-	for _, path := range paths {
+	for path, want := range tests {
 		for _, method := range []string{http.MethodGet, http.MethodHead} {
 			t.Run(method+" "+path, func(t *testing.T) {
 				svc := &fakeService{resolveFn: func(string) app.Decision {
@@ -188,17 +201,52 @@ func TestReservedPathsAreNeverResolved(t *testing.T) {
 				}}
 				rec := request{method: method, target: path}.send(newTestServer(svc, nil).Handler())
 
-				if rec.Code != http.StatusNotFound {
-					t.Errorf("status = %d, want 404", rec.Code)
+				if rec.Code != want.status {
+					t.Errorf("status = %d, want %d", rec.Code, want.status)
 				}
-				// A browser that cached this 404 would keep asking nobody.
-				if got := rec.Header().Get("Cache-Control"); got != "no-store" {
-					t.Errorf("Cache-Control = %q, want no-store", got)
+				if got := rec.Header().Get("Content-Type"); got != want.contentType {
+					t.Errorf("Content-Type = %q, want %q", got, want.contentType)
+				}
+				cache := rec.Header().Get("Cache-Control")
+				if want.status == http.StatusNotFound && cache != "no-store" {
+					// A browser that cached this 404 would keep asking nobody.
+					t.Errorf("Cache-Control = %q, want no-store", cache)
+				}
+				if want.status == http.StatusOK && !strings.HasPrefix(cache, "public, max-age=") {
+					t.Errorf("Cache-Control = %q, want a public lifetime", cache)
+				}
+				if method == http.MethodHead && rec.Body.Len() != 0 {
+					t.Errorf("HEAD wrote a body of %d bytes", rec.Body.Len())
 				}
 				if got := svc.resolvedPaths(); len(got) != 0 {
 					t.Errorf("resolver was called: %v", got)
 				}
 			})
+		}
+	}
+}
+
+// robots.txt keeps every crawler out: a Directory's pages and links are
+// nobody's to index (plan L3.10).
+func TestRobotsTxt(t *testing.T) {
+	rec := get(newTestServer(&fakeService{}, nil).Handler(), "/robots.txt")
+	if got, want := rec.Body.String(), "User-agent: *\nDisallow: /\n"; got != want {
+		t.Errorf("body = %q, want %q", got, want)
+	}
+	if got, want := rec.Header().Get("Cache-Control"), "public, max-age=86400"; got != want {
+		t.Errorf("Cache-Control = %q, want %q", got, want)
+	}
+}
+
+func TestReservedPathsRefuseWrites(t *testing.T) {
+	for _, path := range []string{"/favicon.ico", "/robots.txt", "/.well-known/x"} {
+		svc := &fakeService{}
+		rec := request{method: http.MethodPost, target: path}.send(newTestServer(svc, nil).Handler())
+		if rec.Code != http.StatusMethodNotAllowed || rec.Header().Get("Allow") != "GET, HEAD" {
+			t.Errorf("POST %s = %d (Allow %q), want 405 with Allow: GET, HEAD", path, rec.Code, rec.Header().Get("Allow"))
+		}
+		if len(svc.resolvedPaths()) != 0 {
+			t.Errorf("POST %s reached the resolver", path)
 		}
 	}
 }
@@ -453,8 +501,15 @@ func TestMissWithoutANameRepeatsNothing(t *testing.T) {
 		if rec.Code != http.StatusNotFound {
 			t.Errorf("GET %.40s status = %d, want 404", target, rec.Code)
 		}
-		if got := rec.Body.String(); got != "404: that is not a go link.\n" {
-			t.Errorf("GET %.40s body = %q, want the fixed line", target, got)
+		// The fixed page, and nothing of the address on it.
+		body := rec.Body.String()
+		if !strings.Contains(body, "That is not a go link") {
+			t.Errorf("GET %.40s is not the fixed page:\n%s", target, body)
+		}
+		for _, leaked := range []string{"ecret", "token", "Set-Cookie", "%3C", "&lt;script", strings.Repeat("a", 64)} {
+			if strings.Contains(body, leaked) {
+				t.Errorf("GET %.40s: the page repeats %q of the address", target, leaked)
+			}
 		}
 	}
 	for _, leaked := range []string{"secret", "Secret", "token", "Set-Cookie", "script", "aaaa"} {

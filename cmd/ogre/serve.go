@@ -51,6 +51,13 @@ func serve(ctx context.Context, args []string, getenv func(string) string, stder
 	}
 	log := slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{Level: cfg.LogLevel}))
 
+	// The pages are loaded with the configuration: with --dev, a checkout
+	// that cannot be found is a refused start, before anything is created.
+	pages, err := loadPages(cfg.Dev)
+	if err != nil {
+		return err
+	}
+
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	// Once shutdown has begun, hand signals back to the system: a second
@@ -80,8 +87,9 @@ func serve(ctx context.Context, args []string, getenv func(string) string, stder
 			"--allow-host only names the addresses browsers may use for this Directory; it does not keep other machines out, "+
 			"which can send any Host they like", "addr", cfg.Addr)
 	}
-	if cfg.Dev {
-		log.Warn("--dev has no effect yet: pages are served from the binary until the web UI arrives")
+	if pages.Dev() {
+		log.Warn("--dev: templates and static files are read from the source checkout on every request; edits show on reload",
+			"dir", pages.SourceDir)
 	}
 
 	st, err := store.Open(ctx, cfg.DBPath)
@@ -114,7 +122,7 @@ func serve(ctx context.Context, args []string, getenv func(string) string, stder
 		Version:    version,
 		Actor:      actor,
 		Logger:     log,
-		UI:         web.Handler(version),
+		Web:        pages.Renderer,
 	})
 	serving = true
 	if err := srv.Serve(ctx, listeners); err != nil {
@@ -122,4 +130,28 @@ func serve(ctx context.Context, args []string, getenv func(string) string, stder
 	}
 	log.Info("ogre has stopped")
 	return nil
+}
+
+// devPages is the web renderer and, in --dev mode, where it reads from.
+type devPages struct {
+	*web.Renderer
+	SourceDir string
+}
+
+// loadPages builds the web renderer: from the files compiled into the
+// binary, or with --dev from the checkout's internal/web (web.SourceDir).
+func loadPages(dev bool) (devPages, error) {
+	opts := web.Options{Version: version}
+	if dev {
+		dir, err := web.SourceDir()
+		if err != nil {
+			return devPages{}, err
+		}
+		opts.Dir = dir
+	}
+	r, err := web.New(opts)
+	if err != nil {
+		return devPages{}, err
+	}
+	return devPages{Renderer: r, SourceDir: opts.Dir}, nil
 }

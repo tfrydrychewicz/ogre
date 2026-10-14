@@ -1,0 +1,155 @@
+/*
+ * The home page: the search box, results, and the lists of links.
+ * Only adds classes; colors come from the tokens of site.css.
+ */
+
+.home-title {
+  margin-bottom: var(--space-3);
+  font-size: 1.5rem;
+}
+
+.home-search {
+  margin-bottom: var(--space-5);
+}
+
+.home-search .input-group {
+  max-width: 44rem;
+}
+
+.home-search-input {
+  min-height: 3rem;
+  font-size: 1.125rem;
+}
+
+.home-search .field-help {
+  margin: var(--space-2) 0 0;
+}
+
+.search-status {
+  margin-bottom: var(--space-3);
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+/* A list of links: search results and the lists below them. */
+.results {
+  margin: 0;
+}
+
+.results > li + li {
+  margin-top: var(--space-2);
+}
+
+/* One link. The whole card opens it: the go link's own anchor is stretched
+   over the card, and the Details link sits above that layer. */
+.result {
+  position: relative;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  min-width: 0;
+}
+
+.result:hover {
+  border-color: var(--color-control);
+}
+
+.result:focus-within {
+  border-color: var(--color-focus);
+}
+
+.result > * {
+  margin: 0;
+}
+
+.result > * + * {
+  margin-top: var(--space-1);
+}
+
+.result-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+}
+
+.result-link {
+  color: var(--color-link);
+  font-weight: 650;
+  font-size: 1rem;
+  text-decoration: none;
+}
+
+.result-link:hover {
+  text-decoration: underline;
+}
+
+.result-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+}
+
+/* The ring goes around the whole card, which is what the link opens. */
+.result-link:focus-visible {
+  outline: none;
+}
+
+.result-link:focus-visible::after {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.result-desc {
+  overflow-wrap: anywhere;
+}
+
+.result-routes {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.result-routes > li {
+  overflow-wrap: anywhere;
+}
+
+.result-host {
+  color: var(--color-muted);
+}
+
+.result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+}
+
+.result-meta:empty {
+  display: none;
+}
+
+.result-details {
+  position: relative;
+  z-index: 1;
+}
+
+.search-create {
+  margin-top: var(--space-3);
+}
+
+.first-run {
+  max-width: 40rem;
+  margin: var(--space-5) auto 0;
+  color: var(--color-text);
+}
+
+.first-run h2 {
+  font-size: 1.25rem;
+}
+
+.first-run-actions {
+  justify-content: center;
+}

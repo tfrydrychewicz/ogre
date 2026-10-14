@@ -1,0 +1,50 @@
+/*
+ * The setup page (templates/setup.html). Adds classes only; the shared
+ * pieces come from site.css.
+ */
+
+.setup {
+  max-width: 46rem;
+}
+
+.setup-toc ol {
+  margin: 0;
+}
+
+.setup-section {
+  margin-top: var(--space-6);
+  scroll-margin-top: var(--space-4);
+}
+
+/* Numbered steps, a little apart so each reads as one thing to do. */
+.setup-steps > li + li {
+  margin-top: var(--space-2);
+}
+
+/* A command or path to type, with its copy button beside it; on a phone
+   the button wraps below a long path. */
+.setup-command {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.setup-command code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.setup-copy {
+  flex: 0 0 auto;
+}
+
+.setup-fields {
+  margin: var(--space-2) 0 0;
+}
+
+.setup-address {
+  font-size: 0.9375em;
+}

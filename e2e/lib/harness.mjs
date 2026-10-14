@@ -277,7 +277,7 @@ export async function startServer({ dbPath, bin = SERVER_BIN, readyTimeout = 15_
 /**
  * @typedef {object} LinkDraft the body of POST /-/api/v1/links
  * @property {string} [description]
- * @property {{ pattern: string, destination: string }[]} routes
+ * @property {{ pattern: string, destination: string, variables?: Record<string, { description?: string, example?: string }> }[]} routes
  */
 
 /**

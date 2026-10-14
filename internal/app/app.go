@@ -91,13 +91,9 @@ func (a *App) LocalActor(ctx context.Context) (Actor, error) {
 // It returns "" when the owner cannot be named, which never fails a request:
 // a missing name is a cosmetic gap, not a reason to hide the link.
 //
-// Until accounts exist the only possible owner is the built-in user.
+// It is OwnerName for a link at hand.
 func (a *App) Owner(ctx context.Context, l linkmodel.Link) string {
-	u, err := a.localUser(ctx)
-	if err != nil || u.ID != l.OwnerID {
-		return ""
-	}
-	return u.DisplayName
+	return a.OwnerName(ctx, l.OwnerID)
 }
 
 // ListLinks returns every link, ordered by name, with its routes in order.

@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"html"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -20,7 +22,6 @@ import (
 	"github.com/tfrydrychewicz/ogre/internal/app"
 	"github.com/tfrydrychewicz/ogre/internal/httpd"
 	"github.com/tfrydrychewicz/ogre/internal/store"
-	"github.com/tfrydrychewicz/ogre/internal/web"
 )
 
 // The worked examples of PRD 5.7 are data, kept once, in the link model's
@@ -371,12 +372,14 @@ func checkRequest(t *testing.T, base string, links map[string]apiLink, path stri
 		if pageStatus != status || pageHeader.Get("Location") != "" {
 			t.Errorf("GET /%s = %d (Location %q), want %d", path, pageStatus, pageHeader.Get("Location"), status)
 		}
-		if ct := pageHeader.Get("Content-Type"); !strings.HasPrefix(ct, "text/plain") {
-			t.Errorf("GET /%s: Content-Type = %q, want text/plain until the web UI exists", path, ct)
+		if ct := pageHeader.Get("Content-Type"); ct != "text/html; charset=utf-8" {
+			t.Errorf("GET /%s: Content-Type = %q, want the miss page", path, ct)
 		}
-		for _, text := range contains {
-			if !strings.Contains(string(page), text) {
-				t.Errorf("GET /%s: the page lacks %q:\n%s", path, text, page)
+		// What the user reads: the page's text, as a browser shows it.
+		text := visibleText(page)
+		for _, want := range contains {
+			if !strings.Contains(text, want) && !strings.Contains(string(page), want) {
+				t.Errorf("GET /%s: the page lacks %q:\n%s", path, want, text)
 			}
 		}
 	}
@@ -435,7 +438,7 @@ func checkRequest(t *testing.T, base string, links map[string]apiLink, path stri
 		if len(got.Routes) != len(want.Reasons) || len(got.Routes) != len(link.Routes) {
 			t.Fatalf("resolve %q: %d routes with reasons, want %d, one per route: %s", path, len(got.Routes), len(want.Reasons), raw)
 		}
-		pageLines := []string{"go/" + want.Link + " exists"}
+		pageLines := []string{"go/" + want.Link + " can't open this address"}
 		for i, w := range want.Reasons {
 			g := got.Routes[i]
 			if g.Pattern != w.Route || g.ID != link.Routes[i].ID {
@@ -454,7 +457,7 @@ func checkRequest(t *testing.T, base string, links map[string]apiLink, path stri
 				t.Errorf("resolve %q: reason %d does not say what %s accepts: %+v", path, i, w.Variable, g.Reason)
 			}
 			// The page shows each route with the very sentence the API gave.
-			pageLines = append(pageLines, "go/"+w.Route+"\n", g.Reason.Message)
+			pageLines = append(pageLines, "go/"+w.Route, "Why it doesn't fit: "+g.Reason.Message)
 		}
 		expectPage(http.StatusNotFound, pageLines...)
 
@@ -470,9 +473,17 @@ func checkRequest(t *testing.T, base string, links map[string]apiLink, path stri
 			(len(want.Suggestions) > 0 && !reflect.DeepEqual(got.Suggestions, want.Suggestions)) {
 			t.Errorf("resolve %q: suggestions = %+v, want %+v (%s)", path, got.Suggestions, want.Suggestions, raw)
 		}
-		pageLines := []string{"go/" + want.RequestedName + " is not a go link yet"}
+		var pageLines []string
+		if want.RequestedName != "" {
+			pageLines = append(pageLines, "Create go/")
+		}
 		for _, s := range want.Suggestions {
-			pageLines = append(pageLines, "Did you mean go/"+s.Path+"?")
+			// The suggestion is the corrected go link; when it resolves,
+			// the link goes to that address itself (MISS-1).
+			pageLines = append(pageLines, "go/"+s.Path)
+			if s.Resolves {
+				pageLines = append(pageLines, `href="/`+s.Path+`"`)
+			}
 			// Following the suggestion leads where it says.
 			if s.Resolves {
 				followed, followedHeader, _ := call(t, http.MethodGet, base+"/"+s.Path, nil)
@@ -482,6 +493,9 @@ func checkRequest(t *testing.T, base string, links map[string]apiLink, path stri
 			}
 		}
 		expectPage(http.StatusNotFound, pageLines...)
+		if want.RequestedName != "" && !strings.Contains(strings.ToLower(visibleText(page)), "no link go/"+want.RequestedName) {
+			t.Errorf("GET /%s does not name the missing link go/%s:\n%s", path, want.RequestedName, visibleText(page))
+		}
 		if len(want.Suggestions) == 0 && strings.Contains(string(page), "Did you mean") {
 			t.Errorf("GET /%s suggests something, want nothing:\n%s", path, page)
 		}
@@ -788,7 +802,6 @@ func serveAsSecondUser(t *testing.T, db string) string {
 		Addr:    addr,
 		Version: version,
 		Actor:   app.Actor{UserID: userID, DisplayName: secondUserName},
-		UI:      web.Handler(version),
 	}).Handler()
 	ts.Start()
 	t.Cleanup(ts.Close)
@@ -934,7 +947,8 @@ func TestServeBoundsRegexWork(t *testing.T) {
 			if took := time.Since(start); took < best {
 				best = took
 			}
-			if !strings.Contains(string(body), "doesn't accept") {
+			// The miss page is HTML, where the apostrophe is an entity.
+			if !strings.Contains(visibleText(body), "doesn't accept") {
 				t.Fatalf("GET %s = %d %s, want a miss that explains itself", target[len(base):len(base)+24], resp.StatusCode, body)
 			}
 		}
@@ -1028,4 +1042,19 @@ func TestValidateAnswersThePlanExample(t *testing.T) {
 	if _, links := listLinks(t, srv.url); len(links) != 0 {
 		t.Errorf("validating created %d links", len(links))
 	}
+}
+
+var (
+	inlineTag = regexp.MustCompile(`(?i)</?(?:a|span|bdi|strong|code|kbd)\b[^>]*>`)
+	anyTag    = regexp.MustCompile(`(?s)<[^>]*>`)
+	spaces    = regexp.MustCompile(`\s+`)
+)
+
+// visibleText is the text of a page as a browser shows it, near enough for
+// these checks: inline tags dropped, other tags as spaces, entities decoded,
+// white space collapsed.
+func visibleText(page []byte) string {
+	text := inlineTag.ReplaceAllString(string(page), "")
+	text = html.UnescapeString(anyTag.ReplaceAllString(text, " "))
+	return strings.TrimSpace(spaces.ReplaceAllString(text, " "))
 }

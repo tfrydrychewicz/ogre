@@ -3,6 +3,7 @@ package index
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -41,6 +42,19 @@ func check(t *testing.T, label string, s *Snapshot, want ...string) {
 	}
 	if !slices.Equal(walked, names) {
 		t.Errorf("%s: All() walked %v, want the order of Names() %v", label, walked, names)
+	}
+	// Search walks the docs and reads names by the same index, so the two
+	// must stay aligned through every write.
+	if s != nil {
+		if len(s.docs) != len(s.names) {
+			t.Fatalf("%s: %d docs for %d names", label, len(s.docs), len(s.names))
+		}
+		for i, name := range s.names {
+			d := s.docs[i]
+			if d.link != s.byName[name] || !strings.HasPrefix(d.text, name+string(docSep)) {
+				t.Errorf("%s: doc %d is not the doc of %q", label, i, name)
+			}
+		}
 	}
 }
 

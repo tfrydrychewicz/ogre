@@ -248,6 +248,12 @@ type RouteCheck struct {
 	// variable the pattern does not declare, or whose declaration cannot be
 	// read yet, is left out; nil when no samples were sent.
 	Samples map[string]map[string]bool
+	// SampleReasons says why each refused sample value is refused: variable
+	// name -> value -> the sentence a miss page would show for it
+	// (linkmodel.CheckValue), in the words of the route's notes on its
+	// variables. Accepted values have no entry; nil when no samples were
+	// sent.
+	SampleReasons map[string]map[string]string
 }
 
 // NameCheck is what Validate found out about the draft's name.

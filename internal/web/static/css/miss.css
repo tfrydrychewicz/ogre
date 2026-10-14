@@ -1,0 +1,93 @@
+/*
+ * The miss page (templates/miss.html): what a go link that did not resolve
+ * shows. Adds classes only; the shared pieces come from site.css.
+ */
+
+/* Names, typed paths, descriptions and reasons are other people's text, of
+   any length and possibly one long word: everything on the page wraps
+   anywhere, so a phone never scrolls sideways (NFR-20). */
+.miss {
+  max-width: 44rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.miss-title {
+  overflow-wrap: anywhere;
+}
+
+/* "Did you mean": each suggestion is its go link, large enough to be the
+   obvious next step, with what it is and where it leads below it. */
+.miss-suggestions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.miss-suggestion {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+}
+
+.miss-suggestion > * {
+  margin: 0;
+}
+
+.miss-suggestion > * + * {
+  margin-top: var(--space-1);
+}
+
+.miss-suggestion-link {
+  display: inline-block;
+  max-width: 100%;
+  font-size: 1.125rem;
+  font-weight: 650;
+}
+
+/* The first suggestion is what Enter opens; its border says so as well as
+   its focus ring. */
+.miss-suggestion:first-child {
+  border-color: var(--color-accent);
+}
+
+.miss-patterns > li + li {
+  margin-top: var(--space-1);
+}
+
+.miss-description {
+  color: var(--color-muted);
+}
+
+.miss-routes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.miss-route-pattern {
+  margin-bottom: var(--space-2);
+  font-size: 1rem;
+}
+
+.miss-reason {
+  margin-bottom: 0;
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--color-danger);
+}
+
+.miss-next .button .golink {
+  font-weight: 600;
+}
+
+.miss-search {
+  margin: var(--space-4) 0 0;
+}
+
+.miss-search .label {
+  display: block;
+  margin-bottom: var(--space-1);
+}

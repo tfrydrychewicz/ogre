@@ -1,0 +1,103 @@
+{{/*
+  The miss page (plan L3.8; PRD 5.6, MISS-1 to MISS-3). Data: httpd.missData.
+  Rendered at the address that missed, with status 404, so every URL here is
+  absolute. It is complete without JavaScript; miss.js only makes sure the
+  first suggestion has focus where a browser ignores autofocus on a link.
+
+  Text from the request and from link owners (the typed path, names,
+  descriptions, destinations) sits in <bdi>, so a right-to-left or
+  direction-changing character in it cannot reorder the page around it.
+*/}}
+{{define "head"}}
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="{{asset "css/miss.css"}}">
+{{if .Suggestions}}<script type="module" src="{{asset "js/miss.js"}}"></script>{{end}}
+{{end}}
+
+
+{{define "miss-search"}}
+<form class="miss-search" role="search" action="/-/" method="get">
+  <label class="label" for="miss-search-q">Search go links</label>
+  <div class="input-group">
+    <input class="input" id="miss-search-q" type="search" name="q" value="{{.}}" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search">
+    <button class="button" type="submit">Search</button>
+  </div>
+</form>
+{{end}}
+
+
+{{define "main"}}
+<div class="miss">
+{{if eq .Kind "unknown"}}
+  <p class="message-status">404 · Not found</p>
+  <h1 class="miss-title">No link <span class="golink"><bdi>go/{{.Typed}}</bdi></span></h1>
+
+  {{if .Suggestions}}
+  <section class="section" aria-labelledby="miss-suggestions-title">
+    <h2 class="section-title" id="miss-suggestions-title">Did you mean</h2>
+    <ol class="list-plain miss-suggestions">
+      {{range $i, $s := .Suggestions}}
+      <li class="miss-suggestion">
+        <a class="miss-suggestion-link golink" href="{{$s.Href}}"{{if eq $i 0}} autofocus data-miss-first{{end}}><bdi>go/{{$s.Path}}</bdi></a>
+        {{with $s.Description}}<p class="miss-suggestion-description"><bdi>{{.}}</bdi></p>{{end}}
+        {{if $s.Resolves}}
+        <p class="miss-suggestion-destination"><span class="muted small">Opens</span> <span class="url"><bdi>{{$s.Destination}}</bdi></span></p>
+        {{else}}
+        <p class="muted small">What you typed after the name doesn't fit this link. It is used like this:</p>
+        <ul class="list-plain miss-patterns">
+          {{range $s.Patterns}}<li class="pattern"><bdi>go/{{template "pattern-parts" .}}</bdi></li>{{end}}
+        </ul>
+        {{end}}
+      </li>
+      {{end}}
+    </ol>
+    <p class="muted small">Press <kbd>Enter</kbd> to open the first suggestion.</p>
+  </section>
+  {{else}}
+  <p>No link has this name or one close to it.</p>
+  {{end}}
+
+  <section class="card miss-next" aria-labelledby="miss-next-title">
+    <h2 class="section-title" id="miss-next-title">{{if .Suggestions}}Not what you meant?{{else}}What next{{end}}</h2>
+    <p><a class="button{{if not .Suggestions}} button-primary{{end}} miss-create" href="{{.CreateURL}}">Create <span class="golink"><bdi>go/{{.CreatePath}}</bdi></span></a></p>
+    {{template "miss-search" .Name}}
+  </section>
+
+{{else if eq .Kind "known"}}
+  <p class="message-status">404 · No route fits</p>
+  <h1 class="miss-title"><span class="golink"><bdi>go/{{.Name}}</bdi></span> can't open this address</h1>
+  <p>You typed <span class="golink"><bdi>go/{{.Typed}}</bdi></span>.{{if .Routes}} Here is how each way of using <span class="golink">go/{{.Name}}</span> reads it.{{end}}</p>
+  {{with .Description}}<p class="miss-description"><bdi>{{.}}</bdi></p>{{end}}
+
+  {{if .Routes}}
+  <section class="section" aria-labelledby="miss-routes-title">
+    <h2 class="section-title" id="miss-routes-title">How <span class="golink">go/{{.Name}}</span> is used</h2>
+    <ol class="list-plain miss-routes">
+      {{range .Routes}}
+      <li class="card miss-route">
+        <p class="pattern miss-route-pattern"><bdi>go/{{template "pattern-parts" .Pattern}}</bdi></p>
+        <p class="miss-reason"><strong>Why it doesn't fit:</strong> <bdi>{{.Reason}}</bdi></p>
+      </li>
+      {{end}}
+    </ol>
+  </section>
+  {{end}}
+
+  <section class="card miss-next" aria-labelledby="miss-next-title">
+    <h2 class="section-title" id="miss-next-title">What next</h2>
+    <p>The page of <span class="golink">go/{{.Name}}</span> describes each variable and builds the go link for you.</p>
+    <p class="cluster"><a class="button button-primary" href="{{.LinkURL}}">View <span class="golink">go/{{.Name}}</span></a> <a class="button miss-create" href="{{.CreateURL}}">Create <span class="golink"><bdi>go/{{.CreatePath}}</bdi></span></a></p>
+    {{template "miss-search" .Name}}
+  </section>
+
+{{else}}
+  <p class="message-status">404 · Not found</p>
+  <h1 class="miss-title">That is not a go link</h1>
+  <p>This address can't be the name of a link. Search the Directory for the link you want, or create a new one.</p>
+  <section class="card miss-next" aria-label="What next">
+    <p><a class="button" href="{{.CreateURL}}">Create a link</a></p>
+    {{template "miss-search" ""}}
+  </section>
+{{end}}
+</div>
+{{end}}

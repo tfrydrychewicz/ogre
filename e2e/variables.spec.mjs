@@ -21,6 +21,7 @@ import {
   startServer,
   tempDir,
 } from "./lib/harness.mjs";
+import { watchPolicy } from "./lib/ui.mjs";
 
 /** @type {import("./lib/harness.mjs").RunningServer | undefined} */
 let server;
@@ -28,6 +29,8 @@ let server;
 let fixture;
 /** @type {import("./lib/harness.mjs").ExtensionBrowser | undefined} */
 let browser;
+/** @type {Awaited<ReturnType<typeof watchPolicy>>} */
+let watch;
 
 test.beforeAll(async () => {
   test.setTimeout(240_000); // a first build compiles the SQLite driver
@@ -53,6 +56,8 @@ test.beforeAll(async () => {
   expect(search.name).toBe("search");
 
   browser = await launchWithExtension();
+  // The miss pages are the Directory's own: no policy violation, no error.
+  watch = await watchPolicy(browser.context);
 });
 
 test.afterAll(async () => {
@@ -71,6 +76,8 @@ test.afterEach(async ({}, testInfo) => {
     await testInfo.attach("ogre output", { body: server.output() || "(none)", contentType: "text/plain" });
     console.log(`--- ogre output ---\n${server.output() || "(none)"}\n--- end of ogre output ---`);
   }
+  const problems = watch.problems.splice(0);
+  expect(problems, "content security policy violations and console errors").toEqual([]);
 });
 
 /**
@@ -92,7 +99,7 @@ async function open(url, check) {
 
 /**
  * Opens a go link that must end on the Directory's own 404 page, and returns
- * the page's text.
+ * the text of the page's main content, as the user reads it.
  *
  * @param {string} goPath what follows http://go, for example "/reports/13/01"
  * @returns {Promise<string>}
@@ -100,14 +107,15 @@ async function open(url, check) {
 async function openMiss(goPath) {
   const before = fixture.requests.length;
   let text = "";
+  watch.allowStatus(DIRECTORY_URL + goPath);
   await open(`http://go${goPath}`, async (page, response) => {
     expect(page.url()).toBe(DIRECTORY_URL + goPath);
     expect(response?.status()).toBe(404);
-    expect(response?.headers()["content-type"]).toContain("text/plain");
+    expect(response?.headers()["content-type"]).toBe("text/html; charset=utf-8");
     expect(response?.headers()["cache-control"]).toBe("no-store");
-    text = (await response?.text()) ?? "";
-    // What the user sees is that text, shown as text.
-    expect(await page.locator("body").innerText()).toContain(text.trim().split("\n")[0]);
+    // The miss page (L3.8) keeps the address it missed out of any Referer.
+    expect(response?.headers()["referrer-policy"]).toBe("no-referrer");
+    text = await page.locator("main").innerText();
   });
   // A miss sends nothing anywhere.
   expect(fixture.requests).toHaveLength(before);
@@ -142,7 +150,7 @@ test("a value its variable refuses ends on a 404 that names the variable", async
   // and what it accepts (MISS-2).
   const text = await openMiss("/reports/13/01");
 
-  expect(text).toContain("go/reports exists");
+  expect(text).toContain("go/reports can't open this address");
   expect(text).toContain("go/reports/{month:regex(^(0?[1-9]|1[0-2])$)}/{day:int}");
   expect(text).toMatch(/\bmonth\b.*"13"/);
   expect(text).toContain("^(0?[1-9]|1[0-2])$");
@@ -152,12 +160,15 @@ test("a misspelled name ends on a 404 that offers the corrected go link", async 
   // Two swapped letters, and the values are carried over (MISS-1).
   const text = await openMiss("/reprots/10/13");
 
-  expect(text).toContain("go/reprots is not a go link yet");
-  expect(text).toContain("Did you mean go/reports/10/13?");
+  expect(text).toContain("No link go/reprots/10/13");
+  expect(text).toMatch(/Did you mean\s+go\/reports\/10\/13/);
 
-  // The offer is good: opening it lands.
-  await open("http://go/reports/10/13", async (page) => {
-    expect(page.url()).toBe(fixture.url("/daily?month=10&day=13"));
+  // The offer is good: it has focus, and Enter follows it to the
+  // destination (PRD scenario 4).
+  await open("http://go/reprots/10/13", async (page) => {
+    const first = page.getByRole("link", { name: "go/reports/10/13" });
+    await expect(first).toBeFocused();
+    await Promise.all([page.waitForURL(fixture.url("/daily?month=10&day=13")), page.keyboard.press("Enter")]);
   });
 });
 

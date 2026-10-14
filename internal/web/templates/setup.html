@@ -1,0 +1,108 @@
+{{/*
+  The setup page (plan L3.9): how to type go links in a browser. Data:
+  httpd.setupData. Everything is fixed text except the Directory's own
+  address and the extension's folder. Readable without JavaScript; setup.js
+  only reveals the copy buttons.
+*/}}
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/setup.css"}}">
+<script type="module" src="{{asset "js/setup.js"}}"></script>
+{{end}}
+
+{{define "setup-copy"}}<button class="button button-small setup-copy" type="button" data-copy="{{.}}" aria-label="Copy {{.}}" hidden>Copy</button>{{end}}
+
+{{define "main"}}
+<div class="setup">
+  <div class="page-header">
+    <div>
+      <h1>Type go links in your browser</h1>
+      <p class="muted">This Directory answers go links at <span class="url setup-address">{{.DirectoryURL}}</span>.</p>
+    </div>
+  </div>
+
+  <p>To type <span class="golink">go/name</span> in Chrome's address bar, load the Ogre extension: it sends every go link to this Directory. Without it, a search shortcut does nearly the same (<a href="#shortcut">last section</a>). Any go link also opens at <span class="url">{{.DirectoryURL}}/name</span>, in any browser.</p>
+
+  {{if not .ExtensionReaches}}
+  <div class="notice notice-warning" role="note">
+    <strong class="notice-title">Warning: the extension won't reach this Directory</strong>
+    <p>The extension sends go links to <span class="url">{{.ExtensionURL}}</span>, and this Directory runs at <span class="url">{{.DirectoryURL}}</span>. Until the extension has a settings page, start the Directory at the default address, or use the search shortcut below.</p>
+  </div>
+  {{end}}
+
+  <nav class="card setup-toc" aria-label="On this page">
+    <ol>
+      <li><a href="#extension">Load the extension</a></li>
+      <li><a href="#check">Check that it works</a></li>
+      <li><a href="#search">If Chrome searches instead</a></li>
+      <li><a href="#incognito">Incognito windows</a></li>
+      <li><a href="#shortcut">Without the extension: a search shortcut</a></li>
+    </ol>
+  </nav>
+
+  <section class="setup-section" id="extension" aria-labelledby="extension-title">
+    <h2 id="extension-title">1. Load the extension</h2>
+    <ol class="setup-steps">
+      <li>Open a new tab and type <span class="setup-command"><code>chrome://extensions</code> {{template "setup-copy" "chrome://extensions"}}</span> in the address bar. Chrome doesn't let pages link there, so type or paste it.</li>
+      <li>Turn on <strong>Developer mode</strong>, the switch in the top right corner.</li>
+      <li>Click <strong>Load unpacked</strong>.</li>
+      {{if .ExtensionDir}}
+      <li>Choose this folder: <span class="setup-command"><code>{{.ExtensionDir}}</code> {{template "setup-copy" .ExtensionDir}}</span></li>
+      {{else}}
+      <li>Choose the folder named <code>extension</code> at the top of your copy of the Ogre repository.</li>
+      {{end}}
+      <li>Ogre now appears among your extensions. Leave it switched on.</li>
+    </ol>
+  </section>
+
+  <section class="setup-section" id="check" aria-labelledby="check-title">
+    <h2 id="check-title">2. Check that it works</h2>
+    <ol class="setup-steps">
+      <li>Type <kbd>go/</kbd> in the address bar, with the slash, and press <kbd>Enter</kbd>. This Directory's home page opens.</li>
+      <li>Type a go link you have created, such as <span class="golink">go/name</span>, and press <kbd>Enter</kbd>. You land where the link points. No links yet? <a href="/-/new">Create one</a>.</li>
+    </ol>
+  </section>
+
+  <section class="setup-section" id="search" aria-labelledby="search-title">
+    <h2 id="search-title">3. If Chrome searches instead of opening the link</h2>
+    <p>Until Chrome knows <span class="golink">go</span> as a site, it may treat <span class="golink">go/name</span> as words to search for.</p>
+    <ol class="setup-steps">
+      <li>Type <kbd>go/</kbd>, with the slash, and press <kbd>Enter</kbd>. Once is enough: after that, <span class="golink">go/name</span> opens the link.</li>
+      <li>Until then, end the link with a slash, <span class="golink">go/name/</span>, or type it in full, <span class="golink">http://go/name</span>. Chrome always opens those as addresses.</li>
+    </ol>
+  </section>
+
+  <section class="setup-section" id="incognito" aria-labelledby="incognito-title">
+    <h2 id="incognito-title">4. Incognito windows</h2>
+    <p>Chrome doesn't run extensions in Incognito windows unless you allow it. Without it, a go link typed in an Incognito window ends on Chrome's error page.</p>
+    <ol class="setup-steps">
+      <li>Open <code>chrome://extensions</code>.</li>
+      <li>Click <strong>Details</strong> under Ogre.</li>
+      <li>Turn on <strong>Allow in Incognito</strong>.</li>
+    </ol>
+    <div class="notice notice-info" role="note">
+      <strong class="notice-title">Not tested yet</strong>
+      <p>Whether go links work in Incognito once the extension is allowed there has not been tried.</p>
+    </div>
+  </section>
+
+  <section class="setup-section" id="shortcut" aria-labelledby="shortcut-title">
+    <h2 id="shortcut-title">5. Without the extension: a search shortcut</h2>
+    <p>A search shortcut sends what you type after a keyword to this Directory. You type <kbd>go</kbd>, a space or tab, then the link without <span class="golink">go/</span>.</p>
+    <ol class="setup-steps">
+      <li>Open <span class="setup-command"><code>chrome://settings/searchEngines</code> {{template "setup-copy" "chrome://settings/searchEngines"}}</span></li>
+      <li>Next to <strong>Site search</strong>, click <strong>Add</strong>.</li>
+      <li>
+        Fill in:
+        <dl class="meta setup-fields">
+          <dt>Name</dt><dd>Ogre</dd>
+          <dt>Shortcut</dt><dd><code>go</code></dd>
+          <dt>URL with %s in place of query</dt><dd><span class="setup-command"><code>{{.ShortcutURL}}</code> {{template "setup-copy" .ShortcutURL}}</span></dd>
+        </dl>
+      </li>
+      <li>Click <strong>Add</strong>.</li>
+      <li>In the address bar, type <kbd>go</kbd>, press <kbd>Tab</kbd> (or <kbd>Space</kbd>), type the link, such as <span class="golink">roadmap</span>, and press <kbd>Enter</kbd>.</li>
+    </ol>
+    <p class="muted small">If you often search for words that start with “go”, choose another shortcut, such as <code>og</code>. Other browsers have the same feature under names like “keyword” or “custom search engine”.</p>
+  </section>
+</div>
+{{end}}

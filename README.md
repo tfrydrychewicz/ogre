@@ -2,7 +2,7 @@
 
 Ogre is a go-links tool in two parts. The Ogre server is the Directory: a small server that turns a short name such as `go/roadmap` into the address it stands for. The Ogre extension for Chrome sends `go/…` to that server. The server runs on your own computer and keeps its links in one SQLite file.
 
-**State: milestone L2, the link model.** A link can have several routes with named, typed variables; the resolver explains every miss and suggests near names. Links are still managed with `curl`: there is no web UI yet.
+**State: milestone L3, the web UI.** A link can have several routes with named, typed variables; the resolver explains every miss and suggests near names. Links are found, created, edited, tried and deleted in the browser at `http://localhost:4655`; the JSON API below does the same for scripts.
 
 ## Prerequisites
 
@@ -21,7 +21,22 @@ It listens on `http://localhost:4655` (loopback only) and creates its database o
 
 Open `chrome://extensions`, switch on "Developer mode", choose "Load unpacked", and select the `extension/` directory. It appears as "Ogre". There is no build step. [extension/README.md](extension/README.md) explains each permission it asks for.
 
-## Create a link
+## Use it
+
+Open `http://localhost:4655` (or type `go/` once the extension is loaded).
+
+| Page | Address | What it does |
+|---|---|---|
+| Home | `/-/` | Search as you type, ranked: exact name, name prefix, misspelled name, then words in names, descriptions, destinations and owners. `↓` moves into the results, `Enter` opens one. Below the box: your links and the recently added ones |
+| New link | `/-/new` | Routes (pattern and destination), a description, and a variables table where each variable gets a type, a note and an example. Everything is checked by the Directory as you type; "Try it" previews the unsaved link with sample values and opens it in a new tab. A name that is taken offers to add your routes, notes and all, to that link. `?pattern=` and `?destination=` prefill it; when another site opened it that way, the page warns and names where each destination leads |
+| Link | `/-/links/{name}` | Routes, variables, owner, buttons that copy `go/{name}` and its full address, and a launcher: fill in the values (each is checked as you type it) and open the result |
+| Edit, Delete | `/-/links/{name}/edit`, `/-/links/{name}/delete` | Changing the first route's name renames every route. Saving a link someone changed meanwhile is refused and says so, keeping what you typed; so is deleting one. Routes another site asks to add to a link are left out |
+| Setup | `/-/setup` | How to load the extension, check it, and the extension-free search shortcut |
+| Miss | the address typed | A go link that doesn't resolve answers `404` with "Did you mean" (`Enter` follows the first suggestion), or, for a known name, why each route didn't fit; plus "Create" and a search box holding the name |
+
+The reading pages (home and search, link pages, miss pages, setup) work without JavaScript; creating, editing and deleting need it. The pages load nothing from other sites and run under a strict content security policy (no inline script or style, and Trusted Types: no string ever becomes markup).
+
+## Create a link from the command line
 
 ```sh
 curl -i -X POST http://localhost:4655/-/api/v1/links \
@@ -78,12 +93,12 @@ Everything is under `http://localhost:4655/-/api/v1`; [docs/IMPLEMENTATION_PLAN.
 
 | Endpoint | Does |
 |---|---|
-| `GET /links` | Lists every link |
+| `GET /links` | Lists every link. `?q=daily+report` searches instead: the same link objects in rank order, each with a `rank` (`exact`, `prefix`, `misspelled`, `name`, `description`, `destination` or `owner`) and the `tokens` of each route's pattern; `limit` (default 20, at most 100) |
 | `POST /links` | Creates a link from `description` and `routes`; `201`, or `409 link.name_taken` naming the link that has the name |
 | `GET /links/{id}` | Returns one link |
 | `PATCH /links/{id}` | Replaces `description` and `routes` (send all of them; a route keeps its identity through its `id`). Needs `version` as last read; a stale one answers `409 link.version_conflict`, before anything is said about the draft. Routes with another first segment rename the link. `403 link.forbidden` names the link and its owner |
 | `DELETE /links/{id}` | Deletes the link; `204`. `?version=N` deletes only if the link is still at that version |
-| `POST /links/validate` | Checks a draft without saving, by the same rules as saving: problems with positions, the tokens of each pattern, whether the name is free, and whether `samples` values would be accepted |
+| `POST /links/validate` | Checks a draft without saving, by the same rules as saving: problems with positions, the tokens of each pattern, whether the name is free, and whether `samples` values would be accepted. `"describeVariables": true` adds each route's variables with their positions; `"explainSamples": true` adds `sampleReasons`, the sentence each refused sample would get; a route's `"expressions": {"v": "[0-9"}` checks regular expressions on their own, answered in the route's `expressions`; `"preview": {"route": 0, "path": "reports/10/13"}` says what the draft, saved as it is, would do with that request (`hit` with the destination, `miss_known` with reasons) |
 | `GET /resolve?path=reports/10/13` | Says what the resolver would do with `go/reports/10/13`, without redirecting: `hit` with the values and destination, `miss_known` with a reason per route, `miss_unknown` with suggestions, `home` or `bad_request` |
 | `GET /meta` | Product, version and API version |
 
@@ -107,6 +122,18 @@ go run ./cmd/ogre --allow-host go        # then open http://go:4655/roadmap
 
 `http://go/roadmap` with no port means port 80. Either forward port 80 to 4655 and start the server with `--allow-host go:80`, or listen there directly with `--addr localhost:80 --allow-host go`, which needs the rights to open a low port.
 
+## Work on the web UI
+
+The pages are Go templates in `internal/web/templates`, with stylesheets and plain ES modules in `internal/web/static`: no framework, no bundler, no build step. The modules are type-checked from their JSDoc comments by `npm run typecheck`. The server serves them under a content-hash prefix (`/-/static/<hash>/…`, cached for a year), so a changed file gets a new address.
+
+```sh
+go run ./cmd/ogre --dev --db /tmp/ogre-dev.db
+```
+
+`--dev` reads templates and static files from the checkout on every request, so an edit shows on reload without a restart; the footer says "development mode". It looks for the checkout from the working directory up, then where the binary was built, and refuses to start without one.
+
+Browsers' own requests (`/favicon.ico`, `/robots.txt`, `/apple-touch-icon*.png`, `/.well-known/…`, `/sitemap.xml`) are answered directly and never treated as go links or logged as misses.
+
 ## Check your changes
 
 ```sh
@@ -115,7 +142,7 @@ npx playwright install chromium   # once: the browser the end-to-end tests drive
 make check
 ```
 
-`make check` is the gate before every commit: `gofmt`, `go vet`, `staticcheck`, the Go tests with the race detector, each fuzz target for 10 seconds, the type check and unit tests of the extension, and the end-to-end tests in headless Chromium. `make test` runs the Go tests alone, `make fuzz FUZZTIME=5m` fuzzes for longer, and `make bench` runs the benchmarks at 100,000 links and the costliest request a saved link allows. `make check` also lists the rows of the PRD's examples that wait for a later milestone (`make spec-pending`).
+`make check` is the gate before every commit: `gofmt`, `go vet`, `staticcheck`, the Go tests with the race detector, each fuzz target for 10 seconds, the type check of the browser code, the unit tests of the extension and of the web UI's modules (`e2e/unit`), a scan of the browser code for DOM sinks that parse markup, and the end-to-end tests in headless Chromium. Those include the PRD's scenarios 1 to 7 driven through the pages (`e2e/scenarios.spec.mjs`, with the extension), the accessibility scan of every page in light and dark, a 375-pixel-wide pass, the pages without JavaScript and search by keyboard alone (`e2e/ui.spec.mjs`), what the pages' modules do (`e2e/behaviour.spec.mjs`: hostile text, deleting, renaming, late answers, long names), and negative controls that show the policy watch and the accessibility scan fail when they should (`e2e/harness.spec.mjs`); every page they open fails the test on a content security policy violation or a script error. `make test` runs the Go tests alone, `make fuzz FUZZTIME=5m` fuzzes for longer, and `make bench` runs the benchmarks at 100,000 links and the costliest request a saved link allows. `make check` also lists the rows of the PRD's examples that wait for a later milestone (`make spec-pending`).
 
 - The end-to-end tests need port 4655 free, because that is where the extension sends go links. Stop a running Ogre server first; the tests use a temporary database, never yours. If a test run was killed and left an `ogre` process behind, the next run says so and names its process id.
 - `staticcheck` is fetched at a pinned version and needs the network the first time. Offline, `make check STATICCHECK_OPTIONAL=1` skips that one step and says so.
@@ -127,7 +154,7 @@ Before a release, also check by hand what the tests can't reach: with `extension
 | Path | Holds |
 |---|---|
 | `cmd/ogre` | The command line: `serve` (the default) and `version` |
-| `internal/` | The server: link rules (`linkmodel`), storage (`store`), the in-memory index (`index`), use cases (`app`), HTTP (`httpd`, `web`), settings (`config`) |
+| `internal/` | The server: link rules (`linkmodel`), storage (`store`), the in-memory index and search (`index`), use cases (`app`), HTTP and pages (`httpd`), templates, styles and browser modules (`web`), settings (`config`) |
 | `extension/` | The Ogre extension for Chrome, loadable as it is |
 | `e2e/` | Playwright tests |
 | [docs/PRD.md](docs/PRD.md) | What the product is and why |

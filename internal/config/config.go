@@ -47,8 +47,8 @@ type Config struct {
 	AllowHosts []string
 	// LogLevel is the least severe level that is logged.
 	LogLevel slog.Level
-	// Dev will serve templates and static files from disk; it has no effect
-	// until the web UI arrives.
+	// Dev serves templates and static files from the source checkout,
+	// read again on every request, so editing them needs no restart.
 	Dev bool
 	// AllowUnauthenticatedNetwork lifts the refusal to listen beyond
 	// loopback. It has no environment variable on purpose: exposing a
@@ -187,7 +187,7 @@ func newFlagSet(addr, db, logLevel *string, hosts *hostList, dev, allowNetwork *
 	fs.StringVar(db, "db", "", "database `file` (default "+DBFileName+" in the per-user data directory; env "+EnvDB+")")
 	fs.Var(hosts, "allow-host", "extra Host header `value` to serve, such as \"go\"; repeat the flag or separate values with commas (env "+EnvAllowHosts+")")
 	fs.StringVar(logLevel, "log-level", "", "debug, info, warn or error (default \"info\"; env "+EnvLogLevel+")")
-	fs.BoolVar(dev, "dev", false, "serve templates and static files from disk (no effect yet: it arrives with the web UI)")
+	fs.BoolVar(dev, "dev", false, "serve templates and static files from the source checkout, read on every request (start ogre inside the checkout)")
 	fs.BoolVar(allowNetwork, "allow-unauthenticated-network", false, "allow listening beyond this computer although ogre has no sign-in")
 	return fs
 }

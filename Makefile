@@ -33,12 +33,14 @@ STATICCHECK_VERSION ?= 2026.2.2
 STATICCHECK := go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 
 # The plan (section 3.6) bans these in browser code: untrusted text goes in
-# with textContent or DOM methods.
-BANNED_DOM  := innerHTML|insertAdjacentHTML
+# with textContent or DOM methods. Every DOM sink that parses a string as
+# markup is listed, not only the two common ones; the pages' content security
+# policy (Trusted Types) refuses the same sinks at run time in Chromium.
+BANNED_DOM  := innerHTML|outerHTML|insertAdjacentHTML|document\.write|srcdoc|DOMParser|parseFromString|createContextualFragment|setHTMLUnsafe|parseHTMLUnsafe
 BROWSER_DIRS := internal/web/static extension
 
 .PHONY: run build test fuzz bench e2e check clean \
-        fmt-check vet staticcheck spec-pending typecheck test-extension dom-guard
+        fmt-check vet staticcheck spec-pending typecheck test-extension test-web dom-guard
 
 run:
 	go run ./cmd/ogre $(ARGS)
@@ -152,6 +154,12 @@ typecheck:
 test-extension:
 	npm run test:extension
 
+# Unit tests of the web UI's browser modules that need no browser
+# (e2e/unit): the debounce every call made while typing relies on, and the
+# URL check of lib/dom.js.
+test-web:
+	npm run test:web
+
 # grep exits 0 on a match, 1 on none and 2 on an error such as a missing
 # directory. Only "1" may pass: a guard that searched nothing has not shown
 # that nothing is there.
@@ -161,13 +169,13 @@ dom-guard:
 	done; \
 	grep -rnE '$(BANNED_DOM)' $(BROWSER_DIRS); status=$$?; \
 	if [ $$status -eq 0 ]; then \
-	  echo "dom-guard: innerHTML and insertAdjacentHTML are banned in browser code (plan section 3.6); use textContent or DOM methods"; exit 1; \
+	  echo "dom-guard: DOM sinks that parse markup ($(BANNED_DOM)) are banned in browser code (plan section 3.6); use textContent or DOM methods"; exit 1; \
 	elif [ $$status -ne 1 ]; then \
 	  echo "dom-guard: grep failed (exit status $$status), so nothing was checked"; exit 1; \
 	fi; \
 	echo "dom-guard: ok"
 
-check: fmt-check vet staticcheck test spec-pending fuzz typecheck test-extension dom-guard e2e
+check: fmt-check vet staticcheck test spec-pending fuzz typecheck test-extension test-web dom-guard e2e
 	@echo "make check: all passed"
 
 clean:

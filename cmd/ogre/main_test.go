@@ -496,6 +496,68 @@ func TestAllowHostIsHonoured(t *testing.T) {
 	}
 }
 
+// --dev must serve the pages from the checkout the tests run in, and say so.
+// Without it the pages come from the binary.
+func TestDevServesPagesFromTheCheckout(t *testing.T) {
+	for _, tt := range []struct {
+		flags   []string
+		wantDev bool
+	}{{nil, false}, {[]string{"--dev"}, true}} {
+		port, stderr := serveWith(t, tt.flags...)
+		if got := statusFor(t, port, "localhost:"+port, "/-/healthz", stderr); got != http.StatusOK {
+			t.Fatalf("healthz = %d", got)
+		}
+		resp, err := http.Get("http://127.0.0.1:" + port + "/-/")
+		if err != nil {
+			t.Fatal(err)
+		}
+		page, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if got := strings.Contains(string(page), "development mode"); got != tt.wantDev {
+			t.Errorf("flags %q: the page says development mode = %v, want %v", tt.flags, got, tt.wantDev)
+		}
+		if got := strings.Contains(stderr.String(), "--dev: templates and static files are read from the source checkout"); got != tt.wantDev {
+			t.Errorf("flags %q: logged dev mode = %v, want %v:\n%s", tt.flags, got, tt.wantDev, stderr)
+		}
+	}
+}
+
+// The paths the server answers itself (plan section 3.3) can never become
+// go links: saving one through the real API is refused, and the path keeps
+// its own answer instead of reaching the resolver.
+func TestReservedNamesCannotBeSaved(t *testing.T) {
+	port, stderr := serveWith(t)
+	if got := statusFor(t, port, "localhost:"+port, "/-/healthz", stderr); got != http.StatusOK {
+		t.Fatalf("healthz = %d", got)
+	}
+	base := "http://127.0.0.1:" + port
+	for _, name := range []string{"favicon.ico", "FAVICON.ICO", "robots.txt", "sitemap.xml", "apple-touch-icon.png", "apple-touch-icon-120x120.png", "robots.txt/{x}"} {
+		body := `{"routes":[{"pattern":"` + name + `","destination":"https://example.com/"}]}`
+		resp, err := http.Post(base+"/-/api/v1/links", "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		answer, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(string(answer), `"pattern.reserved_name"`) {
+			t.Errorf("saving %q = %d %s, want 422 with pattern.reserved_name", name, resp.StatusCode, answer)
+		}
+	}
+	for path, want := range map[string]int{"/favicon.ico": http.StatusOK, "/robots.txt": http.StatusOK, "/sitemap.xml": http.StatusNotFound} {
+		if got := statusFor(t, port, "localhost:"+port, path, stderr); got != want {
+			t.Errorf("GET %s = %d, want %d", path, got, want)
+		}
+	}
+	// The request log names these as reserved, never as a miss.
+	deadline := time.Now().Add(5 * time.Second)
+	for strings.Count(stderr.String(), "area=reserved") < 3 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if log := stderr.String(); strings.Count(log, "area=reserved") < 3 || strings.Contains(log, "decision=miss") {
+		t.Errorf("reserved paths were not logged as reserved, or were logged as misses:\n%s", log)
+	}
+}
+
 // --log-level must reach the logger.
 func TestLogLevelIsHonoured(t *testing.T) {
 	port, quiet := serveWith(t, "--log-level", "error")

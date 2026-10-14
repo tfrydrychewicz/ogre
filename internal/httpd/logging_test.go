@@ -169,7 +169,12 @@ func TestRequestLogNeverContainsPathOrQuery(t *testing.T) {
 		},
 		{
 			name: "UI page",
-			req:  request{target: "/-/links/" + pathSecret + "?pattern=" + querySecret},
+			req:  request{target: "/-/links/" + pathSecret + "/edit?pattern=" + querySecret},
+			want: map[string]any{"area": "internal", "route": "/-/links/{name}/edit"},
+		},
+		{
+			name: "UI 404",
+			req:  request{target: "/-/nothing/" + pathSecret + "?pattern=" + querySecret},
 			want: map[string]any{"status": 404.0, "area": "internal", "route": "/-/"},
 		},
 		{

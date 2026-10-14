@@ -77,6 +77,8 @@ Scenarios the product must support:
 8. **Run it alone.** Dana clones the repository, starts the Directory with one command, loads the extension, and has a working `go/` on her laptop within five minutes.
 9. **Move to a shared Directory.** Dana's team deploys the Directory. She exports her local links, imports them there, and changes one setting in the extension.
 
+Scenarios 2 and 5 cannot both hold for one link with the P0 types: an integer has no range until VAR-9 (P2), so a `month` set to an integer accepts `13`. Until then, scenario 5 is shown with the regex `month` of 5.7 (implementation plan, L3).
+
 ## 4. How it works
 
 ```text

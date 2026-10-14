@@ -1,0 +1,79 @@
+{{/*
+  The home page (plan L3.3): search, your links, recently added.
+  Data: httpd.homeData. Search results and the lists share the "link-item"
+  markup, which search.js builds again for results that arrive as you type;
+  the two must stay alike.
+  User text (descriptions, owners, hosts) sits in <bdi>, so a right-to-left
+  override in it cannot reorder the text around it.
+*/}}
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/home.css"}}">
+<script type="module" src="{{asset "js/home.js"}}"></script>
+{{end}}
+
+
+{{define "link-item"}}
+<li class="result">
+  <div class="result-head">
+    <a class="result-link golink" href="{{.Href}}"{{if .Direct}} data-direct="true"{{end}}>go/{{.Name}}</a>
+    {{if eq .Rank "misspelled"}}<span class="badge">Similar name</span>{{end}}
+    {{if not .Direct}}<span class="badge badge-accent">Takes values</span>{{end}}
+  </div>
+  {{with .Description}}<p class="result-desc"><bdi>{{.}}</bdi></p>{{end}}
+  <ul class="result-routes list-plain">
+    {{range .Routes}}<li><bdi class="pattern">go/{{template "pattern-parts" .Parts}}</bdi>{{with .Host}} <span class="result-host"><span aria-hidden="true">→</span><span class="visually-hidden">opens</span> <bdi>{{.}}</bdi></span>{{end}}</li>
+    {{end}}{{if .MoreRoutes}}<li class="muted small">and {{.MoreRoutes}} more {{if eq .MoreRoutes 1}}route{{else}}routes{{end}}</li>{{end}}
+  </ul>
+  <p class="result-meta">{{with .Owner}}<span>Owner: <bdi>{{.}}</bdi></span>{{end}}{{if .Direct}} <a class="result-details" href="/-/links/{{.Name}}">Details<span class="visually-hidden"> of go/{{.Name}}</span></a>{{end}}</p>
+</li>
+{{end}}
+
+{{define "main"}}
+<h1 class="home-title">Find a go link</h1>
+<form class="home-search" id="home-search" role="search" action="/-/" method="get" data-limit="{{.Limit}}" data-routes-shown="{{.RoutesShown}}">
+  <label class="visually-hidden" for="q">Search go links</label>
+  <div class="input-group">
+    <input class="input home-search-input" id="q" type="search" name="q" value="{{.Query}}" placeholder="Search go links" autofocus autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" aria-describedby="q-help" aria-controls="results">
+    <button class="button" type="submit">Search</button>
+  </div>
+  <p class="field-help" id="q-help"><span class="js-only" hidden>Results appear as you type. Press <kbd>↓</kbd> to move through them and <kbd>Enter</kbd> to open the first or the selected one.</span><noscript>Press <kbd>Enter</kbd> to search.</noscript></p>
+</form>
+
+<div id="flash"></div>
+
+<section class="section" id="results-section" aria-labelledby="results-title"{{if not .Searched}} hidden{{end}}>
+  <h2 class="visually-hidden" id="results-title">Search results</h2>
+  <p class="search-status" id="search-status" role="status">{{if .Searched}}{{template "search-status" .}}{{end}}</p>
+  <ol class="results list-plain" id="results">
+    {{range .Results}}{{template "link-item" .}}{{end}}
+  </ol>
+  <p class="search-create" id="search-create"{{if or (not .Searched) .Results}} hidden{{end}}><a class="button" id="search-create-link" href="/-/new{{with .Query}}?pattern={{.}}{{end}}">New link</a></p>
+</section>
+
+<div id="home-lists"{{if .Searched}} hidden{{end}}>
+  {{if .Empty}}
+  <section class="empty first-run" aria-labelledby="first-run-title">
+    <h2 id="first-run-title">Your Directory is empty</h2>
+    <p>A go link is a short name, like <span class="golink">go/roadmap</span>, that opens a long address. Make your first one, then teach your browser to open them.</p>
+    <p class="cluster first-run-actions"><a class="button button-primary" href="/-/new">New link</a> <a class="button" href="/-/setup">Set up your browser</a></p>
+  </section>
+  {{else}}
+  <div class="columns">
+    <section aria-labelledby="yours-title">
+      <h2 class="section-title" id="yours-title">Your links</h2>
+      {{if .Yours}}
+      <ol class="results list-plain">{{range .Yours}}{{template "link-item" .}}{{end}}</ol>
+      {{else}}
+      <p class="empty">You have no links yet. <a href="/-/new">Make one</a>.</p>
+      {{end}}
+    </section>
+    <section aria-labelledby="recent-title">
+      <h2 class="section-title" id="recent-title">Recently added</h2>
+      <ol class="results list-plain">{{range .Recent}}{{template "link-item" .}}{{end}}</ol>
+    </section>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+{{define "search-status"}}{{with .Results}}{{len .}} {{if eq (len .) 1}}link matches{{else}}links match{{end}}{{if $.Capped}}; showing the best {{len .}}{{end}}.{{else}}No link matches your search.{{end}}{{end}}

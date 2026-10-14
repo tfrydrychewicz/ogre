@@ -16,6 +16,8 @@ import (
 
 const (
 	apiPrefix = internalPrefix + "api/v1/"
+	// healthzPath answers "ok" while the server runs.
+	healthzPath = internalPrefix + "healthz"
 
 	// product identifies an Ogre server to another one: Listen asks the
 	// meta endpoint who holds a busy port. Plan section 3.1 lists it among
@@ -32,7 +34,7 @@ const (
 // at the root: serveInternal has already refused paths it would rewrite.
 func (s *Server) internalMux() http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle(internalPrefix+"healthz", byMethod{http.MethodGet: s.handleHealthz})
+	mux.Handle(healthzPath, byMethod{http.MethodGet: s.handleHealthz})
 	mux.Handle(apiPrefix+"meta", byMethod{http.MethodGet: s.handleMeta})
 	mux.Handle(apiPrefix+"links", byMethod{http.MethodGet: s.handleListLinks, http.MethodPost: s.handleCreateLink})
 	// The more specific pattern wins over "{id}", so "validate" is never
@@ -48,7 +50,7 @@ func (s *Server) internalMux() http.Handler {
 	mux.HandleFunc(internalPrefix+"api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, codeNotFound, "There is no such API endpoint.", nil)
 	})
-	mux.Handle(internalPrefix, s.opts.UI)
+	s.addPageRoutes(mux)
 	return mux
 }
 
@@ -67,21 +69,6 @@ type metaJSON struct {
 
 func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, r, http.StatusOK, metaJSON{Product: product, Version: s.opts.Version, API: apiVersion})
-}
-
-func (s *Server) handleListLinks(w http.ResponseWriter, r *http.Request) {
-	links, err := s.svc.ListLinks(r.Context(), s.opts.Actor)
-	if err != nil {
-		s.serviceError(w, r, "list links", app.Draft{}, err)
-		return
-	}
-	out := struct {
-		Links []linkJSON `json:"links"`
-	}{Links: make([]linkJSON, 0, len(links))}
-	for _, l := range links {
-		out.Links = append(out.Links, s.linkJSON(r, l))
-	}
-	writeJSON(w, r, http.StatusOK, out)
 }
 
 // linkRequest is the body of POST /links. The name is never sent: it is the

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"slices"
+	"strings"
 
 	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
 )
@@ -79,7 +80,7 @@ func (a *App) Validate(_ context.Context, actor Actor, req ValidateRequest) Vali
 
 	for i := range res.Routes {
 		if i < len(req.Samples) && len(req.Samples[i]) > 0 {
-			res.Routes[i].Samples = trySamples(req.Draft.Routes[i], req.Samples[i], a.rules)
+			res.Routes[i].Samples, res.Routes[i].SampleReasons = trySamples(req.Draft.Routes[i], req.Samples[i], a.rules)
 		}
 	}
 
@@ -91,10 +92,11 @@ func (a *App) Validate(_ context.Context, actor Actor, req ValidateRequest) Vali
 }
 
 // trySamples says, for each sample value, whether the route would accept it
-// for that variable. The answer is the link model's (linkmodel.Accepts): the
-// variable's type, and the rule that a variable used in the destination's
-// path refuses "." and ".." (NFR-10). It is what Match would decide for that
-// segment once the route is saved.
+// for that variable, and why not when it would not. The answer is the link
+// model's (linkmodel.CheckValue): the variable's type, and the rule that a
+// variable used in the destination's path refuses "." and ".." (NFR-10). It
+// is what Match would decide for that segment once the route is saved, in
+// the sentence a miss page would show.
 //
 // A pattern that is not valid yet is asked about the variables that can
 // already be read (linkmodel.PatternSoFar), so a form can show what a value
@@ -102,22 +104,209 @@ func (a *App) Validate(_ context.Context, actor Actor, req ValidateRequest) Vali
 // that cannot be read against those variables leaves only the types to
 // decide. Samples for a variable that cannot be read, or that the pattern
 // does not declare, are left out of the result.
-func trySamples(r DraftRoute, samples map[string][]string, rules linkmodel.ValidateOptions) map[string]map[string]bool {
+func trySamples(r DraftRoute, samples map[string][]string, rules linkmodel.ValidateOptions) (map[string]map[string]bool, map[string]map[string]string) {
 	_, pattern := linkmodel.PatternSoFar(r.Pattern)
 	template, problems := linkmodel.ParseDestination(r.Destination, pattern, rules)
 	if linkmodel.HasErrors(problems) {
 		template = linkmodel.Template{}
 	}
 	result := make(map[string]map[string]bool, len(samples))
+	reasons := make(map[string]map[string]string)
 	for variable, values := range samples {
 		if !slices.Contains(pattern.Variables(), variable) {
 			continue
 		}
 		accepted := make(map[string]bool, len(values))
 		for _, value := range values {
-			accepted[value], _ = linkmodel.Accepts(pattern, template, variable, value)
+			reason, ok, _ := linkmodel.CheckValue(pattern, template, r.Variables, variable, value)
+			accepted[value] = ok
+			if !ok {
+				if reasons[variable] == nil {
+					reasons[variable] = make(map[string]string)
+				}
+				reasons[variable][value] = reason.Message
+			}
 		}
 		result[variable] = accepted
 	}
-	return result
+	return result, reasons
+}
+
+// ExpressionProblem checks a regular expression on its own, as the form's
+// variables table holds it in a field of its own (VAR-3): the code and
+// sentence of its first problem, in the terms of the expression alone, or
+// two empty strings when the expression can be a regex variable's
+// (linkmodel.RegexProblem). Inside the pattern, an unclosed "[" or "(" could
+// only be reported as a missing parenthesis of regex(, which is syntax the
+// table's author never wrote.
+func ExpressionProblem(expression string) (code, message string) {
+	return linkmodel.RegexProblem(expression)
+}
+
+// The two answers below serve the create and edit form (plan L3.6) beside
+// Validate: what the table of a route's variables shows, and the live
+// preview of a draft that is not saved yet. They are functions of the draft
+// alone and read nothing stored, so the HTTP layer calls them directly after
+// Validate; all they know about links they ask of the link model (NFR-22).
+
+// VariableCheck is one variable of a pattern being written, as the form's
+// variables table shows it.
+type VariableCheck struct {
+	Name string
+	// Type is the type's name: "string", "int", "number" or "regex".
+	Type string
+	// Accepts says in words what the variable accepts (VarType.Describe).
+	Accepts string
+	// Expression is the regular expression of a regex variable, as written
+	// between "regex(" and its closing parenthesis; "" for the other types.
+	// The form shows it in its own field, so nobody has to find it inside
+	// the pattern.
+	Expression string
+	// Start and End are the byte offsets of the variable's text in the
+	// pattern, braces included ([Start, End)): the span a form replaces when
+	// the variable's type is changed in the table.
+	Start, End int
+}
+
+// DraftVariables lists the variables of a pattern that can be read so far,
+// in pattern order, whether or not the pattern as a whole is valid yet. A
+// variable whose name is used twice is listed once, at its first place.
+func DraftVariables(pattern string) []VariableCheck {
+	_, readable := linkmodel.PatternSoFar(pattern)
+	out := make([]VariableCheck, 0, len(readable.Variables()))
+	for _, seg := range readable.Segments() {
+		if !seg.IsVariable() {
+			continue
+		}
+		v := VariableCheck{
+			Name: seg.Variable, Type: seg.Type.Name(), Accepts: seg.Type.Describe(),
+			Start: seg.Start, End: seg.End,
+		}
+		if v.Type == linkmodel.TypeRegex {
+			// Format is the canonical "regex(<expression>)"; the expression
+			// is what it wraps, exactly as written.
+			v.Expression = strings.TrimSuffix(strings.TrimPrefix(seg.Type.Format(), linkmodel.TypeRegex+"("), ")")
+		}
+		out = append(out, v)
+	}
+	return out
+}
+
+// PreviewRequest asks where a draft would send a request once it is saved.
+type PreviewRequest struct {
+	// Route is the index of the draft's route the request was built for, or
+	// -1 for none in particular. When it is set, a route that cannot be
+	// saved yet is reported instead of matched around, and a miss explains
+	// that route only.
+	Route int
+	// Path is the go-link path, percent-encoded as it would follow "go/".
+	Path string
+}
+
+// The kinds of a Preview. Three of them are the resolver's own decisions
+// (DecisionKind.String); the last exists only for a draft.
+const (
+	PreviewHit        = "hit"
+	PreviewMissKnown  = "miss_known"
+	PreviewBadRequest = "bad_request"
+	// PreviewInvalid: the draft, or the route the request was built for,
+	// has errors, so there is nothing to match against yet. Message says
+	// so.
+	PreviewInvalid = "invalid"
+)
+
+// Preview is what a draft would do with one request, decided by the link
+// model exactly as for a saved link: Compile, then Match (NFR-22).
+type Preview struct {
+	// Kind is one of the Preview* kinds.
+	Kind string
+	// Route is the index of the draft route that answered a hit; -1
+	// otherwise.
+	Route int
+	// Destination is where a hit leads.
+	Destination string
+	// Values are the hit's values by variable; they are what the user
+	// typed, to show and never to log (NFR-17).
+	Values map[string]string
+	// Reasons explain a miss: one per draft route that was tried, or only
+	// the requested route's when PreviewRequest.Route was set.
+	Reasons []PreviewReason
+	// Message explains a bad request or an invalid draft in a sentence.
+	Message string
+}
+
+// PreviewReason is why one route of a draft did not answer.
+type PreviewReason struct {
+	// Route is the index of the route in the draft.
+	Route  int
+	Reason linkmodel.Reason
+}
+
+// PreviewDraft decides what the draft d would do with req.Path if it were
+// saved as it is. check is Validate's answer for the same draft: the routes
+// it found errors in cannot be saved, so they take no part. Nothing is read
+// from the store or the index, and nothing is written; a saved link of the
+// same name plays no part either, since a save replaces it.
+func PreviewDraft(d Draft, check ValidateResult, req PreviewRequest) Preview {
+	none := Preview{Route: -1}
+	if len(check.Routes) != len(d.Routes) {
+		none.Kind, none.Message = PreviewInvalid, "This link can't be previewed until its problems are fixed."
+		return none
+	}
+	if req.Route >= len(d.Routes) {
+		none.Kind, none.Message = PreviewInvalid, "This route does not exist."
+		return none
+	}
+	if req.Route >= 0 && linkmodel.HasErrors(check.Routes[req.Route].Problems) {
+		none.Kind, none.Message = PreviewInvalid, "Fix the problems of this route to see where it leads."
+		return none
+	}
+
+	// The routes that could be saved, in draft order. Position carries the
+	// draft index through Compile, so a hit and a reason can say which route
+	// they are about.
+	link := linkmodel.Link{Name: check.Name.Value}
+	for i, r := range d.Routes {
+		if linkmodel.HasErrors(check.Routes[i].Problems) {
+			continue
+		}
+		link.Routes = append(link.Routes, linkmodel.Route{
+			Position: i, Pattern: r.Pattern, Destination: r.Destination, Variables: r.Variables,
+		})
+	}
+	if len(link.Routes) == 0 {
+		none.Kind, none.Message = PreviewInvalid, "Fix the problems above to see where this link leads."
+		return none
+	}
+
+	segments, err := linkmodel.SplitPath(req.Path)
+	switch {
+	case err != nil:
+		none.Kind, none.Message = PreviewBadRequest, "This go link can't be read: a % in it is not followed by two hexadecimal digits, or it is not valid text."
+		return none
+	case len(segments) == 0:
+		none.Kind, none.Message = PreviewBadRequest, "There is no go link to try yet."
+		return none
+	}
+
+	compiled := linkmodel.Compile(link)
+	m, ok, reasons, err := compiled.Match(segments)
+	switch {
+	case err != nil:
+		// Not reachable for a destination that passed validation; said
+		// plainly rather than shown as a hit.
+		none.Kind, none.Message = PreviewInvalid, "These values don't make a valid address on the destination's site."
+		return none
+	case ok:
+		return Preview{Kind: PreviewHit, Route: m.Route.Position, Destination: m.Destination, Values: m.Values}
+	}
+	out := Preview{Kind: PreviewMissKnown, Route: -1, Reasons: make([]PreviewReason, 0, len(reasons))}
+	for j, reason := range reasons {
+		position := link.Routes[j].Position
+		if req.Route >= 0 && position != req.Route {
+			continue
+		}
+		out.Reasons = append(out.Reasons, PreviewReason{Route: position, Reason: reason})
+	}
+	return out
 }

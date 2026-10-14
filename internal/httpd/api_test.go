@@ -281,8 +281,9 @@ func TestListLinks(t *testing.T) {
 			svc := &fakeService{links: tt.links}
 			h := newTestServer(svc, nil).Handler()
 
-			// The query is accepted and ignored until search arrives (L3).
-			rec := get(h, "/-/api/v1/links?q=road&limit=5")
+			// Without a query: the plain list. A query searches instead
+			// (TestListLinksSearch).
+			rec := get(h, "/-/api/v1/links")
 
 			if rec.Code != http.StatusOK {
 				t.Fatalf("status = %d, want 200", rec.Code)
@@ -395,19 +396,28 @@ func TestOwnerAndCanEdit(t *testing.T) {
 }
 
 func TestInternalRouting(t *testing.T) {
+	const anyStatus = 0 // the page decides the status; only the routing is checked
 	tests := []struct {
 		name       string
 		req        request
-		wantStatus int
+		wantStatus int    // anyStatus: not checked
 		wantCode   string // API error code; "" when the answer is not an API error
 		wantAllow  string
-		wantUI     bool
+		wantPage   bool // answered with an HTML page of the UI
 	}{
-		{"UI root", request{target: "/-/"}, http.StatusTeapot, "", "", true},
-		{"UI page", request{target: "/-/links/roadmap"}, http.StatusTeapot, "", "", true},
-		{"UI page with query", request{target: "/-/new?pattern=x"}, http.StatusTeapot, "", "", true},
-		{"a path that only starts like the API", request{target: "/-/apiary"}, http.StatusTeapot, "", "", true},
-		{"a path that only starts like healthz", request{target: "/-/healthz/x"}, http.StatusTeapot, "", "", true},
+		{"home", request{target: "/-/"}, http.StatusOK, "", "", true},
+		{"home with a query", request{target: "/-/?q=jira"}, http.StatusOK, "", "", true},
+		{"link page", request{target: "/-/links/roadmap"}, anyStatus, "", "", true},
+		{"edit page", request{target: "/-/links/roadmap/edit"}, anyStatus, "", "", true},
+		{"delete page", request{target: "/-/links/roadmap/delete"}, anyStatus, "", "", true},
+		{"create page with a query", request{target: "/-/new?pattern=x"}, anyStatus, "", "", true},
+		{"setup page", request{target: "/-/setup"}, anyStatus, "", "", true},
+		{"no page below a link", request{target: "/-/links/roadmap/x"}, http.StatusNotFound, "", "", true},
+		{"no links index", request{target: "/-/links/"}, http.StatusNotFound, "", "", true},
+		{"a path that only starts like the API", request{target: "/-/apiary"}, http.StatusNotFound, "", "", true},
+		{"a path that only starts like healthz", request{target: "/-/healthz/x"}, http.StatusNotFound, "", "", true},
+		{"POST to a page", request{method: http.MethodPost, target: "/-/new", headers: map[string]string{"Content-Type": "application/json"}},
+			http.StatusMethodNotAllowed, "", "GET, HEAD", false},
 
 		{"unknown API endpoint", request{target: "/-/api/v1/nothing"}, http.StatusNotFound, codeNotFound, "", false},
 		{"unknown API version", request{target: "/-/api/v2/meta"}, http.StatusNotFound, codeNotFound, "", false},
@@ -423,28 +433,25 @@ func TestInternalRouting(t *testing.T) {
 			http.StatusMethodNotAllowed, codeMethodNotAllowed, "GET, HEAD, POST", false},
 
 		// The inner ServeMux would redirect these to a cleaned path; a
-		// cleaned "/-/../x" is the go link "/x".
-		{"dot-dot out of the prefix", request{target: "/-/../roadmap"}, http.StatusNotFound, codeNotFound, "", false},
-		{"dot-dot inside the prefix", request{target: "/-/api/../healthz"}, http.StatusNotFound, codeNotFound, "", false},
-		{"dot segment", request{target: "/-/./healthz"}, http.StatusNotFound, codeNotFound, "", false},
-		{"double slash", request{target: "/-//healthz"}, http.StatusNotFound, codeNotFound, "", false},
-		{"double slash later", request{target: "/-/api//v1/meta"}, http.StatusNotFound, codeNotFound, "", false},
+		// cleaned "/-/../x" is the go link "/x". Under the API they answer
+		// in the API's shape, elsewhere with the 404 page.
+		{"dot-dot out of the prefix", request{target: "/-/../roadmap"}, http.StatusNotFound, "", "", true},
+		{"dot-dot inside the API", request{target: "/-/api/../healthz"}, http.StatusNotFound, codeNotFound, "", false},
+		{"dot segment", request{target: "/-/./healthz"}, http.StatusNotFound, "", "", true},
+		{"double slash", request{target: "/-//healthz"}, http.StatusNotFound, "", "", true},
+		{"double slash in the API", request{target: "/-/api//v1/meta"}, http.StatusNotFound, codeNotFound, "", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reachedUI := false
-			ui := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				reachedUI = true
-				w.WriteHeader(http.StatusTeapot)
-			})
 			svc := &fakeService{}
-			rec := tt.req.send(newTestServer(svc, func(o *Options) { o.UI = ui }).Handler())
+			rec := tt.req.send(newTestServer(svc, nil).Handler())
 
-			if rec.Code != tt.wantStatus {
+			if tt.wantStatus != anyStatus && rec.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d; body: %s", rec.Code, tt.wantStatus, rec.Body.String())
 			}
-			if reachedUI != tt.wantUI {
-				t.Errorf("reached the UI handler = %v, want %v", reachedUI, tt.wantUI)
+			isPage := strings.HasPrefix(rec.Header().Get("Content-Type"), "text/html")
+			if isPage != tt.wantPage {
+				t.Errorf("Content-Type = %q: answered with a page = %v, want %v", rec.Header().Get("Content-Type"), isPage, tt.wantPage)
 			}
 			if tt.wantCode != "" {
 				if got := errorCode(t, rec); got != tt.wantCode {
@@ -461,13 +468,6 @@ func TestInternalRouting(t *testing.T) {
 				t.Errorf("a path under /-/ reached the resolver: %v", got)
 			}
 		})
-	}
-}
-
-func TestNilUIAnswers404(t *testing.T) {
-	rec := get(newTestServer(&fakeService{}, nil).Handler(), "/-/")
-	if rec.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want 404", rec.Code)
 	}
 }
 

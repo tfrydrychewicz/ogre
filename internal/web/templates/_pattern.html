@@ -1,0 +1,9 @@
+{{/*
+  Partials shared by the pages (a file whose name starts with "_" is parsed
+  into every page).
+
+  "pattern-parts": a stored pattern, its variables highlighted. Data:
+  []httpd.patternPart, cut by the server from the link model's tokens
+  (httpd.patternParts), so no template reads a pattern itself (NFR-22).
+*/}}
+{{define "pattern-parts"}}{{range .}}{{if .Var}}<span class="pattern-var">{{.Text}}</span>{{else}}{{.Text}}{{end}}{{end}}{{end}}

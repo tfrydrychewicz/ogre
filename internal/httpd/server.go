@@ -15,6 +15,7 @@ import (
 
 	"github.com/tfrydrychewicz/ogre/internal/app"
 	"github.com/tfrydrychewicz/ogre/internal/linkmodel"
+	"github.com/tfrydrychewicz/ogre/internal/web"
 )
 
 // Service is what the HTTP layer needs from the use cases. It is an interface
@@ -35,6 +36,20 @@ type Service interface {
 	// CanEdit is the permission rule behind a link's "canEdit". It is asked
 	// of the Service so that this package holds no rule of its own.
 	CanEdit(actor app.Actor, l linkmodel.Link) bool
+
+	// The read queries of the web UI.
+
+	// Search ranks links for a non-blank query, best first (SRCH-2).
+	Search(ctx context.Context, actor app.Actor, q string, limit int) ([]app.SearchResult, error)
+	// LinkByName finds a link by name, ignoring case, and says whether the
+	// actor may edit it; app.ErrNotFound when there is none.
+	LinkByName(ctx context.Context, actor app.Actor, name string) (linkmodel.Link, bool, error)
+	// YourLinks lists the actor's links, most recently changed first.
+	YourLinks(ctx context.Context, actor app.Actor, limit int) ([]linkmodel.Link, error)
+	// RecentLinks lists the newest links, most recently created first.
+	RecentLinks(ctx context.Context, limit int) ([]linkmodel.Link, error)
+	// OwnerName is the display name of a link owner; "" when unknown.
+	OwnerName(ctx context.Context, ownerID int64) string
 }
 
 // Options configures a Server.
@@ -55,9 +70,9 @@ type Options struct {
 	Actor app.Actor
 	// Logger receives one record per request. Nil discards them.
 	Logger *slog.Logger
-	// UI serves every path under "/-/" that is not the API or the health
-	// check. Nil answers 404.
-	UI http.Handler
+	// Web renders the pages and serves the static files. Nil means the
+	// files compiled into the binary, with Version in the footer.
+	Web *web.Renderer
 }
 
 // Server routes requests and owns the listeners.
@@ -66,6 +81,7 @@ type Server struct {
 	opts     Options
 	log      *slog.Logger
 	hosts    hostList
+	web      *web.Renderer
 	internal http.Handler // everything under "/-/"
 }
 
@@ -75,14 +91,21 @@ func New(svc Service, opts Options) *Server {
 	if opts.Logger == nil {
 		opts.Logger = slog.New(slog.DiscardHandler)
 	}
-	if opts.UI == nil {
-		opts.UI = http.NotFoundHandler()
+	if opts.Web == nil {
+		// The embedded templates were parsed by the tests of package web;
+		// failing here is a build mistake, as with template.Must.
+		r, err := web.New(web.Options{Version: opts.Version})
+		if err != nil {
+			panic("httpd: the embedded pages do not load: " + err.Error())
+		}
+		opts.Web = r
 	}
 	s := &Server{
 		svc:   svc,
 		opts:  opts,
 		log:   opts.Logger,
 		hosts: newHostList(opts.Addr, opts.AllowHosts),
+		web:   opts.Web,
 	}
 	s.internal = s.internalMux()
 	return s
@@ -132,8 +155,7 @@ func (s *Server) dispatch(w http.ResponseWriter, r *http.Request, entry *logEntr
 		s.serveInternal(w, r, path, entry)
 	case isAutoRequest(path):
 		entry.area = areaReserved
-		w.Header().Set("Cache-Control", "no-store")
-		writeText(w, r, http.StatusNotFound, "404 Not Found\n")
+		s.serveReserved(w, r, path)
 	default:
 		entry.area = areaResolver
 		s.serveResolver(w, r, path, entry)
@@ -157,20 +179,33 @@ func (s *Server) serveInternal(w http.ResponseWriter, r *http.Request, path stri
 	// cleaned one, and "/-/../x" cleans to the go link "/x". Nothing under
 	// "/-/" needs such paths, so they are simply not found.
 	if !isCleanPath(path) {
-		writeError(w, r, http.StatusNotFound, codeNotFound, "There is nothing at this address.", nil)
+		if strings.HasPrefix(path, internalPrefix+"api/") {
+			writeError(w, r, http.StatusNotFound, codeNotFound, "There is nothing at this address.", nil)
+		} else {
+			s.notFoundPage(w, r)
+		}
 		return
 	}
-	// A read of the API made by a page of another site, as a fetch, an image
-	// or a frame, is refused like the same kind of request for a go link
+	// A read made by a page of another site, as a fetch, an image or a
+	// frame, is refused like the same kind of request for a go link
 	// (serveResolver). Such a page could never see the answer, since no CORS
 	// header is sent; but the request alone makes the server do the work, and
 	// for the resolve endpoint that is as much as a go link costs, without
-	// the user seeing anything happen. A go link opened in a tab from another
+	// the user seeing anything happen. Pages are refused too: whether
+	// /-/links/<name> is a page or a 404 tells which links exist, the very
+	// thing the resolver's refusal hides. A page opened in a tab from another
 	// site, and everything without Fetch Metadata headers (curl, the command
-	// line, other servers), is served as before.
-	if isRead(r.Method) && strings.HasPrefix(path, apiPrefix) && isCrossSiteSubresource(r) {
-		writeError(w, r, http.StatusForbidden, codeCrossSite,
-			"This request came from another site, so it was refused.", nil)
+	// line, other servers), is served as before. The health check and the
+	// static files are exempt: they cost nothing and say nothing about the
+	// links.
+	if isRead(r.Method) && path != healthzPath && !strings.HasPrefix(path, web.StaticPrefix) && isCrossSiteSubresource(r) {
+		if strings.HasPrefix(path, apiPrefix) {
+			writeError(w, r, http.StatusForbidden, codeCrossSite,
+				"This request came from another site, so it was refused.", nil)
+		} else {
+			writeText(w, r, http.StatusForbidden,
+				"403 Forbidden: the Directory's pages can be opened, but not loaded into a page of another site.\n")
+		}
 		return
 	}
 	if !isSafeMethod(r.Method) {

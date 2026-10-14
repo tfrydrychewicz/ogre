@@ -1,0 +1,113 @@
+{{/*
+  A link's page (plan L3.4, DIR-6), and its 404 when no link has the name.
+  Data: httpd.linkPageData. Everything but the launcher works without
+  JavaScript; the launcher (launcher.js) is mounted into #launcher from the
+  routes in its data-routes attribute.
+  User text (description, owner, destinations) sits in <bdi>, so a
+  right-to-left override in it cannot reorder the text around it.
+*/}}
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/link.css"}}">
+{{if not .NotFound}}<script type="module" src="{{asset "js/link.js"}}"></script>{{end}}
+{{end}}
+
+{{define "main"}}
+{{if .NotFound}}
+<div class="message-page">
+  <p class="message-status">Error 404</p>
+  {{if .Missing}}
+  <h1>There is no <span class="golink">go/{{.Missing}}</span></h1>
+  <p>No link has this name yet. You can create it, or search for the one you meant.</p>
+  <p class="cluster"><a class="button button-primary" href="/-/new?pattern={{.Missing}}">Create go/{{.Missing}}</a> <a class="button" href="/-/?q={{.Missing}}">Search</a></p>
+  {{else}}
+  <h1>Link not found</h1>
+  <p>There is no link at this address.</p>
+  <p class="cluster"><a class="button" href="/-/">Directory home</a> <a class="button button-quiet" href="/-/new">New link</a></p>
+  {{end}}
+</div>
+{{else}}
+<div class="page-header">
+  <div class="link-title">
+    <h1 class="golink link-name">go/{{.Name}}</h1>
+    {{with .Description}}<p class="link-description"><bdi>{{.}}</bdi></p>{{end}}
+  </div>
+  {{if .Editable}}
+  <p class="cluster link-actions">
+    <a class="button" href="/-/links/{{.Name}}/edit">Edit<span class="visually-hidden"> go/{{.Name}}</span></a>
+    <a class="button button-quiet link-delete" href="/-/links/{{.Name}}/delete">Delete<span class="visually-hidden"> go/{{.Name}}</span></a>
+  </p>
+  {{end}}
+</div>
+
+<div id="flash"></div>
+
+<div class="copy-rows">
+  <div class="copy-row">
+    <span class="copy-label">Short</span>
+    <code class="golink copy-text">go/{{.Name}}</code>
+    <button class="button button-small" type="button" data-copy="go/{{.Name}}" hidden>Copy go link</button>
+  </div>
+  <div class="copy-row">
+    <span class="copy-label">Full</span>
+    <code class="url copy-text">{{.FullURL}}</code>
+    <button class="button button-small" type="button" data-copy="{{.FullURL}}" hidden>Copy URL</button>
+  </div>
+</div>
+
+<section class="card section launcher-card" id="launch" aria-labelledby="launch-title">
+  <h2 class="section-title" id="launch-title">{{if .HasVariables}}Fill in and open{{else}}Open{{end}}</h2>
+  <div class="launcher" id="launcher" data-name="{{.Name}}" data-routes="{{.LauncherRoutes}}">
+    <noscript>
+      <p class="notice notice-info"><span class="notice-title">Needs JavaScript</span>The launcher needs JavaScript. You can still type the go link yourself: each route below shows what goes where.</p>
+    </noscript>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="routes-title">
+  <h2 class="section-title" id="routes-title">{{if eq (len .Routes) 1}}Route{{else}}Routes{{end}}</h2>
+  <ol class="route-list list-plain">
+    {{range $i, $route := .Routes}}
+    <li class="route card">
+      <dl class="meta">
+        <dt>Pattern</dt>
+        <dd><bdi class="pattern">go/{{template "pattern-parts" .Parts}}</bdi></dd>
+        <dt>Opens</dt>
+        <dd><bdi class="url route-destination">{{.Destination}}</bdi></dd>
+      </dl>
+      {{if .Variables}}
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Variables of go/{{.Pattern}}">
+        <table class="table">
+          <caption class="visually-hidden">Variables of <bdi>go/{{.Pattern}}</bdi></caption>
+          <thead><tr><th scope="col">Variable</th><th scope="col">Type</th><th scope="col">Accepts</th><th scope="col">Description</th><th scope="col">Example</th></tr></thead>
+          <tbody>
+            {{range .Variables}}
+            <tr>
+              <th scope="row"><span class="pattern-var mono">{{.Name}}</span></th>
+              <td><span class="badge">{{.TypeLabel}}</span></td>
+              <td><bdi>{{.Accepts}}</bdi></td>
+              <td>{{with .Description}}<bdi>{{.}}</bdi>{{else}}<span class="muted">None</span>{{end}}</td>
+              <td>{{with .Example}}<code class="mono"><bdi>{{.}}</bdi></code>{{else}}<span class="muted">None</span>{{end}}</td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{end}}
+    </li>
+    {{end}}
+  </ol>
+</section>
+
+<section class="section" aria-labelledby="about-title">
+  <h2 class="section-title" id="about-title">About this link</h2>
+  <dl class="meta">
+    <dt>Owner</dt>
+    <dd>{{with .Owner}}<bdi>{{.}}</bdi>{{else}}<span class="muted">Unknown</span>{{end}}</dd>
+    <dt>Created</dt>
+    <dd><time datetime="{{.CreatedAt.UTC.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Local.Format "2 January 2006, 15:04"}}</time></dd>
+    <dt>Last changed</dt>
+    <dd><time datetime="{{.UpdatedAt.UTC.Format "2006-01-02T15:04:05Z07:00"}}">{{.UpdatedAt.Local.Format "2 January 2006, 15:04"}}</time></dd>
+  </dl>
+</section>
+{{end}}
+{{end}}

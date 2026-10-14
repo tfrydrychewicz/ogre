@@ -45,6 +45,9 @@ type fakeService struct {
 	deleteFn   func(id int64, version int) error
 	validateFn func(req app.ValidateRequest) app.ValidateResult
 
+	// The read queries of the web UI (fake_queries_test.go).
+	fakeQueries
+
 	resolved  []string
 	created   []app.Draft
 	actors    []app.Actor

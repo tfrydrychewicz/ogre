@@ -715,3 +715,141 @@ func TestForbiddenMessageNamesTheOwnerAndTheLink(t *testing.T) {
 		}
 	}
 }
+
+// Without a query, or with a blank one, GET /links is the plain list it was
+// before search: every link, the same JSON, and Search is not asked.
+func TestListLinksWithoutQuery(t *testing.T) {
+	for _, target := range []string{
+		"/-/api/v1/links", "/-/api/v1/links?q=", "/-/api/v1/links?q=%20%09%20", "/-/api/v1/links?limit=3",
+	} {
+		t.Run(target, func(t *testing.T) {
+			svc := &fakeService{links: []linkmodel.Link{sampleLink()}}
+			rec := get(newTestServer(svc, nil).Handler(), target)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d; body: %s", rec.Code, rec.Body.String())
+			}
+			assertJSON(t, rec, `{"links":[`+sampleLinkJSON+`]}`)
+			if got := svc.searches(); len(got) != 0 {
+				t.Errorf("Search was asked: %v", got)
+			}
+		})
+	}
+}
+
+// With a query, GET /links reports what Search found, in its order, each
+// link as every endpoint shows it plus its rank.
+func TestListLinksSearch(t *testing.T) {
+	gh := variableLink()
+	svc := &fakeService{
+		fakeQueries: fakeQueries{searchFn: func(string, int) ([]app.SearchResult, error) {
+			return []app.SearchResult{
+				{Link: sampleLink(), Rank: app.RankDescription},
+				{Link: gh, Rank: app.RankMisspelled, Edits: 1},
+			}, nil
+		}},
+		// Each link's canEdit is the Service's answer for that link.
+		canEditFn: func(_ app.Actor, l linkmodel.Link) bool { return l.Name == "roadmap" },
+	}
+	rec := get(newTestServer(svc, nil).Handler(), "/-/api/v1/links?q=%20Daily+report%20&limit=7")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d; body: %s", rec.Code, rec.Body.String())
+	}
+	// Each result is the link JSON plus its rank, and each of its routes
+	// also carries the tokens of its pattern (in the validate endpoint's
+	// shape), so results that arrive as the user types can highlight
+	// variables.
+	withRank := func(doc, rank string, canEdit bool, tokens ...string) string {
+		var link map[string]any
+		if err := json.Unmarshal([]byte(doc), &link); err != nil {
+			t.Fatal(err)
+		}
+		link["rank"] = rank
+		link["canEdit"] = canEdit
+		routes := link["routes"].([]any)
+		if len(routes) != len(tokens) {
+			t.Fatalf("%d routes, %d token lists", len(routes), len(tokens))
+		}
+		for i, rt := range routes {
+			var list any
+			if err := json.Unmarshal([]byte(tokens[i]), &list); err != nil {
+				t.Fatal(err)
+			}
+			rt.(map[string]any)["tokens"] = list
+		}
+		out, err := json.Marshal(link)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(out)
+	}
+	assertJSON(t, rec, `{"links":[`+
+		withRank(sampleLinkJSON, "description", true,
+			`[{"kind":"literal","start":0,"end":7}]`,
+			`[{"kind":"literal","start":0,"end":7},{"kind":"literal","start":8,"end":12}]`)+`,`+
+		withRank(variableLinkJSON, "misspelled", false,
+			`[{"kind":"literal","start":0,"end":2},{"kind":"variable","start":3,"end":9,"name":"repo","type":"string"},`+
+				`{"kind":"literal","start":10,"end":12},{"kind":"variable","start":13,"end":22,"name":"num","type":"int"}]`,
+			`[{"kind":"literal","start":0,"end":2},{"kind":"literal","start":3,"end":8},`+
+				`{"kind":"variable","start":9,"end":42,"name":"month","type":"regex"},{"kind":"variable","start":43,"end":57,"name":"ratio","type":"number"}]`,
+			`[{"kind":"literal","start":0,"end":2}]`)+`]}`)
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Errorf("Cache-Control = %q, want no-store", got)
+	}
+	// The query reaches the Service trimmed, and the limit as sent; the
+	// Service applies the default and the maximum.
+	if got, want := svc.searches(), []searchCall{{"Daily report", 7}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("searches = %v, want %v", got, want)
+	}
+	if len(svc.actors) == 0 || svc.actors[0] != testActor {
+		t.Errorf("actor = %v, want %v", svc.actors, testActor)
+	}
+
+	// Without a limit the Service hears 0, its default.
+	svc.searched = nil
+	get(newTestServer(svc, nil).Handler(), "/-/api/v1/links?q=gh")
+	if got, want := svc.searches(), []searchCall{{"gh", 0}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("searches = %v, want %v", got, want)
+	}
+}
+
+func TestListLinksSearchFindsNothing(t *testing.T) {
+	rec := get(newTestServer(&fakeService{}, nil).Handler(), "/-/api/v1/links?q=nothing")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d; body: %s", rec.Code, rec.Body.String())
+	}
+	assertJSON(t, rec, `{"links":[]}`)
+}
+
+// A limit that is not a whole number of 1 or more, or a query string that
+// cannot be read, is the client's mistake: 400, and nothing is asked.
+func TestListLinksBadQuery(t *testing.T) {
+	for _, query := range []string{
+		"q=a&limit=0", "q=a&limit=-1", "q=a&limit=abc", "q=a&limit=1.5", "q=a&limit=", "q=a&limit=1&limit=2",
+		"q=a&limit=99999999999999999999", "q=%zz", "limit=abc",
+	} {
+		t.Run(query, func(t *testing.T) {
+			svc := &fakeService{}
+			rec := get(newTestServer(svc, nil).Handler(), "/-/api/v1/links?"+query)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400; body: %s", rec.Code, rec.Body.String())
+			}
+			if got := errorCode(t, rec); got != codeMalformed {
+				t.Errorf("code = %q, want %q", got, codeMalformed)
+			}
+			if svc.calls() != 0 || len(svc.searches()) != 0 {
+				t.Errorf("the Service was asked")
+			}
+		})
+	}
+}
+
+// A failing search is a 500 that says nothing about why.
+func TestListLinksSearchFails(t *testing.T) {
+	svc := &fakeService{fakeQueries: fakeQueries{searchFn: func(string, int) ([]app.SearchResult, error) {
+		return nil, errors.New("disk on fire")
+	}}}
+	rec := get(newTestServer(svc, nil).Handler(), "/-/api/v1/links?q=x")
+	if rec.Code != http.StatusInternalServerError || strings.Contains(rec.Body.String(), "fire") {
+		t.Errorf("status = %d, body = %s; want a bare 500", rec.Code, rec.Body.String())
+	}
+}

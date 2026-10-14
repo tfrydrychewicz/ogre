@@ -6,7 +6,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:extension": "node --test extension/",
-    "e2e": "playwright test --config e2e/playwright.config.mjs"
+    "e2e": "playwright test --config e2e/playwright.config.mjs",
+    "test:web": "node --test e2e/unit/"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.0",

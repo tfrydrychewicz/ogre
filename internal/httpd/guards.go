@@ -4,19 +4,19 @@ import (
 	"mime"
 	"net/http"
 	"strings"
+
+	"github.com/tfrydrychewicz/ogre/internal/web"
 )
 
-// contentSecurityPolicy forbids inline script and style and anything loaded
-// from another origin, so text that slipped past escaping still cannot run
-// (NFR-11). It is sent on every response; it only matters on HTML.
-const contentSecurityPolicy = "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
-
-// setSecurityHeaders sets the headers every response carries. No CORS header
-// is ever set anywhere: other sites must not be able to read the Directory.
+// setSecurityHeaders sets the headers every response carries, before any
+// handler runs: the content security policy, nosniff, the referrer policy
+// and the refusal to be framed (web.SetSecurityHeaders, which also explains
+// each). They live in package web because the pages are what they protect;
+// setting them here as well covers every other answer, plain text and JSON
+// included, and the text pages that become HTML. No CORS header is ever set
+// anywhere: other sites must not be able to read the Directory.
 func setSecurityHeaders(h http.Header) {
-	h.Set("X-Content-Type-Options", "nosniff")
-	h.Set("Referrer-Policy", "same-origin")
-	h.Set("Content-Security-Policy", contentSecurityPolicy)
+	web.SetSecurityHeaders(h)
 }
 
 // isSafeMethod reports whether a method is exempt from the write guards.

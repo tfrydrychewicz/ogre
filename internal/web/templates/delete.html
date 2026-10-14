@@ -1,0 +1,48 @@
+{{/*
+  The confirmation before a link is deleted (plan L3.7). Data:
+  httpd.deletePageData. The deletion is a DELETE of the API sent by
+  delete.js with the version shown here, so a link changed since the page
+  was opened is not deleted unseen. Without JavaScript the page says so and
+  deletes nothing.
+*/}}
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/link.css"}}">
+{{if .Editable}}<script type="module" src="{{asset "js/delete.js"}}"></script>{{end}}
+{{end}}
+
+{{define "main"}}
+<div class="delete-page">
+  <h1>Delete <span class="golink">go/{{.Name}}</span>?</h1>
+  {{with .Description}}<p class="link-description"><bdi>{{.}}</bdi></p>{{end}}
+
+  {{if .Editable}}
+  <p>Once it is deleted, anyone who types <span class="golink">go/{{.Name}}</span> gets a “not found” page instead. {{if eq (len .Routes) 1}}Its route goes{{else}}All {{len .Routes}} of its routes go{{end}} with it:</p>
+  {{else}}
+  <div class="notice notice-error" role="note">
+    <span class="notice-title">Not allowed</span>
+    <p>Only the owner of go/{{.Name}}{{with .Owner}} (<bdi>{{.}}</bdi>){{end}} or an administrator can delete it.</p>
+  </div>
+  {{end}}
+
+  <ul class="route-list list-plain delete-routes">
+    {{range .Routes}}
+    <li class="route card">
+      <bdi class="pattern">go/{{template "pattern-parts" .Parts}}</bdi>
+      <bdi class="url route-destination">{{.Destination}}</bdi>
+    </li>
+    {{end}}
+  </ul>
+
+  <div id="delete-message" class="delete-message"></div>
+
+  {{if .Editable}}
+  <noscript>
+    <p class="notice notice-info"><span class="notice-title">Needs JavaScript</span>Deleting a link needs JavaScript. Turn it on for this page, or delete the link with the API.</p>
+  </noscript>
+  {{end}}
+  <p class="form-actions">
+    {{if .Editable}}<button class="button button-danger" id="delete-confirm" type="button" data-link-id="{{.ID}}" data-version="{{.LinkVersion}}" data-name="{{.Name}}" hidden>Delete go/{{.Name}}</button>{{end}}
+    <a class="button" href="/-/links/{{.Name}}">{{if .Editable}}Cancel{{else}}Back to go/{{.Name}}{{end}}</a>
+  </p>
+</div>
+{{end}}

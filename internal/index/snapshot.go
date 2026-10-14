@@ -30,6 +30,11 @@ type Snapshot struct {
 	// every unknown-name miss; keeping the list here means a miss does not
 	// collect and sort it again.
 	names []string
+	// docs[i] is the search document of the link called names[i]: the link
+	// and its searchable text, lowercased once when the link enters the
+	// snapshot, so that a search, which runs on every keystroke, scans
+	// memory in name order and folds no case (search.go).
+	docs []*doc
 }
 
 // Build returns a snapshot of links, each compiled once (linkmodel.Compile)
@@ -47,6 +52,10 @@ func Build(links []linkmodel.Link) *Snapshot {
 		s.put(linkmodel.NormalizeName(l.Name), own(l))
 	}
 	s.names = slices.Sorted(maps.Keys(s.byName))
+	s.docs = make([]*doc, len(s.names))
+	for i, name := range s.names {
+		s.docs[i] = newDoc(name, s.byName[name])
+	}
 	return s
 }
 
@@ -125,8 +134,11 @@ func (s *Snapshot) Names() []string {
 // as Find.
 func (s *Snapshot) All() iter.Seq[*linkmodel.CompiledLink] {
 	return func(yield func(*linkmodel.CompiledLink) bool) {
-		for _, name := range s.Names() {
-			if !yield(s.byName[name]) {
+		if s == nil {
+			return
+		}
+		for _, d := range s.docs {
+			if !yield(d.link) {
 				return
 			}
 		}
@@ -147,11 +159,16 @@ func (s *Snapshot) All() iter.Seq[*linkmodel.CompiledLink] {
 func (s *Snapshot) With(l linkmodel.Link) *Snapshot {
 	name := linkmodel.NormalizeName(l.Name)
 	next := s.copy(1)
-	next.put(name, own(l))
-	if at, found := slices.BinarySearch(next.names, name); !found {
+	c := own(l)
+	next.put(name, c)
+	at, found := slices.BinarySearch(next.names, name)
+	if found {
+		next.docs[at] = newDoc(name, c)
+	} else {
 		// The clone has room for one more (see copy), so this does not copy
 		// the names a second time.
 		next.names = slices.Insert(next.names, at, name)
+		next.docs = slices.Insert(next.docs, at, newDoc(name, c))
 	}
 	return next
 }
@@ -165,6 +182,7 @@ func (s *Snapshot) Without(name string) *Snapshot {
 	if next.drop(name) {
 		if at, found := slices.BinarySearch(next.names, name); found {
 			next.names = slices.Delete(next.names, at, at+1)
+			next.docs = slices.Delete(next.docs, at, at+1)
 		}
 	}
 	return next
@@ -178,11 +196,15 @@ func (s *Snapshot) copy(extra int) *Snapshot {
 		byName: make(map[string]*linkmodel.CompiledLink, n),
 		byID:   make(map[int64]*linkmodel.CompiledLink, n),
 		names:  make([]string, s.Len(), n),
+		docs:   make([]*doc, s.Len(), n),
 	}
 	if s != nil {
 		maps.Copy(next.byName, s.byName)
 		maps.Copy(next.byID, s.byID)
 		copy(next.names, s.names)
+		// A doc is immutable like the link it describes, so the new
+		// snapshot shares the old one's docs and replaces only what changes.
+		copy(next.docs, s.docs)
 	}
 	return next
 }
